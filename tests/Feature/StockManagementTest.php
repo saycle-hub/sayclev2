@@ -197,7 +197,8 @@ class StockManagementTest extends TestCase
     {
         $admin = $this->admin();
 
-        foreach (['partners', 'contracts', 'routes', 'tasks', 'stats'] as $path) {
+        // Only later-phase modules remain stubs; partners and contracts now have real pages.
+        foreach (['routes', 'tasks', 'stats'] as $path) {
             $this->actingAs($admin)->get("/{$path}")
                 ->assertOk()
                 ->assertInertia(fn ($page) => $page->component('coming-soon')->has('module'));

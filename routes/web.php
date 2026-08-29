@@ -2,6 +2,8 @@
 
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use App\Http\Controllers\ContractController;
+use App\Http\Controllers\PartnerController;
 use App\Http\Controllers\PriceController;
 use App\Http\Controllers\SaleController;
 use App\Http\Controllers\StockController;
@@ -25,10 +27,21 @@ Route::middleware(['auth'])->group(function () {
         Route::get('prices', [PriceController::class, 'index'])->name('prices.index');
         Route::post('prices', [PriceController::class, 'update'])->name('prices.update');
 
+        // Partner & contract management (Fase 3).
+        Route::get('partners', [PartnerController::class, 'index'])->name('partners.index');
+        Route::get('partners/create', [PartnerController::class, 'create'])->name('partners.create');
+        Route::post('partners', [PartnerController::class, 'store'])->name('partners.store');
+        Route::get('partners/{partner}', [PartnerController::class, 'show'])->name('partners.show');
+        Route::get('partners/{partner}/edit', [PartnerController::class, 'edit'])->name('partners.edit');
+        Route::put('partners/{partner}', [PartnerController::class, 'update'])->name('partners.update');
+        Route::delete('partners/{partner}', [PartnerController::class, 'destroy'])->name('partners.destroy');
+        Route::post('partners/{partner}/contracts', [ContractController::class, 'store'])->name('partners.contracts.store');
+        Route::get('contracts', [ContractController::class, 'index'])->name('contracts.index');
+        Route::put('contracts/{contract}', [ContractController::class, 'update'])->name('contracts.update');
+        Route::post('contracts/{contract}/action', [ContractController::class, 'action'])->name('contracts.action');
+
         // Safe stubs for modules shipped in later phases, so admin nav never 404s.
         $stubs = [
-            'partners' => 'Mitra',
-            'contracts' => 'Kontrak',
             'routes' => 'Rute',
             'tasks' => 'Tugas',
             'stats' => 'Statistik',
