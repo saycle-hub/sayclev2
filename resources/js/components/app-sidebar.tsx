@@ -1,47 +1,54 @@
-import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import { BookOpen, Folder, LayoutGrid } from 'lucide-react';
+import { BarChart3, ClipboardList, FileText, HandCoins, Handshake, LayoutGrid, Package, Route, Scale, Tags, Truck, Users } from 'lucide-react';
 import AppLogo from './app-logo';
 
-const navByRole: Record<string, NavItem[]> = {
- admin: [
-    {
-        title: 'Dashboard',
-        url: '/dashboard',
-        icon: LayoutGrid,
+const navByRole: Record<string, { home: NavItem; items: NavItem[] }> = {
+    admin: {
+        home: { title: 'Dasbor', url: '/dashboard', icon: LayoutGrid },
+        items: [
+            { title: 'Stok', url: '/stock', icon: Package },
+            { title: 'Mitra', url: '/partners', icon: Users },
+            { title: 'Kontrak', url: '/contracts', icon: Handshake },
+            { title: 'Rute', url: '/routes', icon: Route },
+            { title: 'Tugas', url: '/tasks', icon: ClipboardList },
+            { title: 'Harga', url: '/prices', icon: Tags },
+            { title: 'Statistik', url: '/stats', icon: BarChart3 },
+        ],
     },
- { title: 'Stock', url: '/stock' }, { title: 'Partners', url: '/partners' }, { title: 'Contracts', url: '/contracts' }, { title: 'Routes', url: '/routes' }, { title: 'Tasks', url: '/tasks' }, { title: 'Prices', url: '/prices' }, { title: 'Stats', url: '/stats' }],
- officer: [{ title: 'Tasks', url: '/officer/tasks' }, { title: 'Routes', url: '/officer/routes' }, { title: 'Weighing', url: '/officer/weighing' }],
- partner: [{ title: 'Deliveries', url: '/partner/deliveries' }, { title: 'Contract', url: '/partner/contract' }, { title: 'Billing', url: '/partner/billing' }],
+    officer: {
+        home: { title: 'Beranda', url: '/officer', icon: LayoutGrid },
+        items: [
+            { title: 'Tugas', url: '/officer/tasks', icon: ClipboardList },
+            { title: 'Rute', url: '/officer/routes', icon: Route },
+            { title: 'Penimbangan', url: '/officer/weighing', icon: Scale },
+        ],
+    },
+    partner: {
+        home: { title: 'Beranda', url: '/partner', icon: LayoutGrid },
+        items: [
+            { title: 'Pengiriman', url: '/partner/deliveries', icon: Truck },
+            { title: 'Kontrak', url: '/partner/contract', icon: FileText },
+            { title: 'Tagihan', url: '/partner/billing', icon: HandCoins },
+        ],
+    },
 };
-
-const footerNavItems: NavItem[] = [
-    {
-        title: 'Repository',
-        url: 'https://github.com/laravel/react-starter-kit',
-        icon: Folder,
-    },
-    {
-        title: 'Documentation',
-        url: 'https://laravel.com/docs/starter-kits',
-        icon: BookOpen,
-    },
-];
 
 export function AppSidebar() {
     const { auth } = usePage<{ auth: { user: { role: string } } }>().props;
-    const mainNavItems = [{ title: 'Home', url: `/${auth.user.role === 'admin' ? 'dashboard' : auth.user.role}`, icon: LayoutGrid }, ...(navByRole[auth.user.role] ?? [])];
+    const roleNav = navByRole[auth.user.role] ?? { home: { title: 'Beranda', url: '/dashboard', icon: LayoutGrid }, items: [] };
+    const mainNavItems = [roleNav.home, ...roleNav.items];
+
     return (
         <Sidebar collapsible="icon" variant="inset">
             <SidebarHeader>
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild>
-                            <Link href={mainNavItems[0].url} prefetch>
+                            <Link href={roleNav.home.url} prefetch>
                                 <AppLogo />
                             </Link>
                         </SidebarMenuButton>
@@ -54,7 +61,6 @@ export function AppSidebar() {
             </SidebarContent>
 
             <SidebarFooter>
-                <NavFooter items={footerNavItems} className="mt-auto" />
                 <NavUser />
             </SidebarFooter>
         </Sidebar>
