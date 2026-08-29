@@ -27,3 +27,6 @@ yarn-error.log
 pnpm-debug.log
 *.log
 Thumbs.db
+
+# JCE context index runtime state
+.opencode-jce/context/

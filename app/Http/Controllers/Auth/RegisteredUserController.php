@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Models\Partner;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -34,18 +35,24 @@ class RegisteredUserController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|lowercase|email|max:255|unique:'.User::class,
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            'address' => 'nullable|string', 'min_capacity_kg' => 'nullable|numeric|min:0',
+            'ideal_capacity_kg' => 'nullable|numeric|gte:min_capacity_kg', 'max_capacity_kg' => 'nullable|numeric|gte:ideal_capacity_kg',
+            'frequency' => 'nullable|in:harian,mingguan,bulanan', 'grade_preference' => 'nullable|in:Layak,Kurang Layak,Tidak Layak',
         ]);
 
+        $partner = $request->filled('address');
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
+            'role' => $partner ? 'partner' : 'admin',
         ]);
+        if ($partner) Partner::create($request->only('name', 'address', 'grade_preference', 'min_capacity_kg', 'ideal_capacity_kg', 'max_capacity_kg', 'frequency') + ['user_id' => $user->id]);
 
         event(new Registered($user));
 
         Auth::login($user);
 
-        return to_route('dashboard');
+        return to_route($partner ? 'partner' : 'dashboard');
     }
 }

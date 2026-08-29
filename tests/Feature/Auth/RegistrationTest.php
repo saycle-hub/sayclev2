@@ -28,4 +28,22 @@ class RegistrationTest extends TestCase
         $this->assertAuthenticated();
         $response->assertRedirect(route('dashboard', absolute: false));
     }
+
+    public function test_partner_can_register_with_capacity()
+    {
+        $response = $this->post('/register', [
+            'name' => 'Mitra Sejahtera',
+            'email' => 'mitra@example.com',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+            'address' => 'Jl. Contoh No. 1',
+            'min_capacity_kg' => 50,
+            'ideal_capacity_kg' => 100,
+            'max_capacity_kg' => 200,
+            'frequency' => 'mingguan',
+        ]);
+
+        $this->assertAuthenticated();
+        $response->assertRedirect(route('partner', absolute: false));
+    }
 }
