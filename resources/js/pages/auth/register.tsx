@@ -103,21 +103,12 @@ export default function Register() {
     return (
         <>
             <Head title="Partner Registration - Step 1: Identity Information">
-                <style>{`input, textarea, select { color-scheme: light; } input:-webkit-autofill, textarea:-webkit-autofill, select:-webkit-autofill { -webkit-text-fill-color: #191c1c; -webkit-box-shadow: 0 0 0 1000px #ffffff inset; transition: background-color 9999s ease-in-out 0s; }`}</style>
                 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
                 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
             </Head>
 
-            <main className="flex min-h-screen flex-col bg-[#f9f9f8] font-[Inter] text-[#191c1c] antialiased [color-scheme:light] md:flex-row">
-                <aside
-                    className="relative hidden w-1/3 min-w-[320px] max-w-[480px] overflow-hidden bg-[#1d3a20] text-white md:flex md:flex-col md:justify-between"
-                    style={{
-                        backgroundImage:
-                            "url('https://lh3.googleusercontent.com/aida-public/AB6AXuBL1aX_at7qsyKMnHgDBLRmhvwdJ45Y9oWH_NkDNVubpMzitg6WiWyjlULh1OPiqMYdpbrN9ZCfpUlFiRUeUJa8BOJYuc-ArA6SBduA-0r__GkTgBQyflh2nvOmnuoA6gk3POBEMYaMhghI1E9CaS0BTOgJAHr4bT5xOTyd-RbbG66YzdqPbOhwv2m5VbdOtCRXsHcnZok74L2BuFP4XvWHwfzc3WatxRpr0R5eRfCgYRqq8VYaADTh')",
-                        backgroundSize: 'cover',
-                        backgroundPosition: 'center',
-                    }}
-                >
+            <main className="flex min-h-screen flex-col bg-[#f9f9f8] font-[Inter] text-[#191c1c] antialiased md:flex-row">
+                <aside className="relative hidden w-1/3 min-w-[320px] max-w-[480px] overflow-hidden bg-[#1d3a20] text-white md:flex md:flex-col md:justify-between">
                     <div className="absolute inset-0 z-0 bg-[#1d3a20]/80" />
                     <div className="relative z-10 flex h-full flex-col p-12">
                         <div>
@@ -173,7 +164,7 @@ export default function Register() {
                                 {step === 1 ? 'Silakan lengkapi detail identitas mitra untuk keperluan verifikasi dan administrasi sistem.' : 'Isi kapasitas penerimaan untuk persiapan langkah berikutnya.'}
                             </p>
 
-                            <form noValidate autoComplete="new-password" className="flex flex-col gap-3" onSubmit={submit}>
+                            <form noValidate className="flex flex-col gap-3" onSubmit={submit}>
                                 {step === 1 && <>
                                 <FieldShell label="Nama Mitra (Partner Name)">
                                     <div className="relative">
@@ -183,12 +174,12 @@ export default function Register() {
                                             required
                                             autoFocus
                                             tabIndex={1}
-                                            autoComplete="new-password"
+                                            autoComplete="name"
                                             value={data.name}
                                             onChange={(e) => setData('name', e.target.value)}
                                             disabled={processing}
                                             placeholder="Masukkan nama organisasi atau bisnis"
-                                            className="h-auto appearance-none rounded-none border-x-0 border-t-0 border-b-2 border-[#c2c8be] bg-transparent px-0 py-2 text-[18px] leading-[1.6] text-[#191c1c] shadow-none outline-none focus:border-x-0 focus:border-t-0 focus:border-b-[#1d3a20] focus:outline-none focus:ring-0 focus-visible:border-x-0 focus-visible:border-t-0 focus-visible:border-b-[#1d3a20] focus-visible:outline-none focus-visible:ring-0"
+                                            className="h-auto rounded-none border-0 border-b-2 border-[#c2c8be] bg-transparent px-0 py-2 text-[18px] leading-[1.6] text-[#191c1c] shadow-none focus-visible:ring-0 focus-visible:border-[#1d3a20]"
                                         />
                                         <div className="absolute inset-x-0 bottom-0 h-0.5 origin-center scale-x-0 bg-[#1d3a20] transition-transform group-focus-within:scale-x-100" />
                                     </div>
@@ -202,12 +193,12 @@ export default function Register() {
                                             type="email"
                                             required
                                             tabIndex={2}
-                                            autoComplete="new-password"
+                                            autoComplete="email"
                                             value={data.email}
                                             onChange={(e) => setData('email', e.target.value)}
                                             disabled={processing}
                                             placeholder="nama@contoh.com"
-                                            className="h-auto appearance-none rounded-none border-x-0 border-t-0 border-b-2 border-[#c2c8be] bg-transparent px-0 py-2 text-[18px] leading-[1.6] text-[#191c1c] shadow-none outline-none focus:border-x-0 focus:border-t-0 focus:border-b-[#1d3a20] focus:outline-none focus:ring-0 focus-visible:border-x-0 focus-visible:border-t-0 focus-visible:border-b-[#1d3a20] focus-visible:outline-none focus-visible:ring-0"
+                                            className="h-auto rounded-none border-0 border-b-2 border-[#c2c8be] bg-transparent px-0 py-2 text-[18px] leading-[1.6] text-[#191c1c] shadow-none focus-visible:ring-0 focus-visible:border-[#1d3a20]"
                                         />
                                         <div className="absolute inset-x-0 bottom-0 h-0.5 origin-center scale-x-0 bg-[#1d3a20] transition-transform group-focus-within:scale-x-100" />
                                     </div>
@@ -226,7 +217,7 @@ export default function Register() {
                                             onChange={(e) => setData('password', e.target.value)}
                                             disabled={processing}
                                             placeholder="Kata sandi"
-                                            className="h-auto appearance-none rounded-none border-x-0 border-t-0 border-b-2 border-[#c2c8be] bg-transparent px-0 py-2 text-[18px] leading-[1.6] text-[#191c1c] shadow-none outline-none focus:border-x-0 focus:border-t-0 focus:border-b-[#1d3a20] focus:outline-none focus:ring-0 focus-visible:border-x-0 focus-visible:border-t-0 focus-visible:border-b-[#1d3a20] focus-visible:outline-none focus-visible:ring-0"
+                                            className="h-auto rounded-none border-0 border-b-2 border-[#c2c8be] bg-transparent px-0 py-2 text-[18px] leading-[1.6] text-[#191c1c] shadow-none focus-visible:ring-0 focus-visible:border-[#1d3a20]"
                                         />
                                         <div className="absolute inset-x-0 bottom-0 h-0.5 origin-center scale-x-0 bg-[#1d3a20] transition-transform group-focus-within:scale-x-100" />
                                     </div>
@@ -245,7 +236,7 @@ export default function Register() {
                                             onChange={(e) => setData('password_confirmation', e.target.value)}
                                             disabled={processing}
                                             placeholder="Ulangi kata sandi"
-                                            className="h-auto appearance-none rounded-none border-x-0 border-t-0 border-b-2 border-[#c2c8be] bg-transparent px-0 py-2 text-[18px] leading-[1.6] text-[#191c1c] shadow-none outline-none focus:border-x-0 focus:border-t-0 focus:border-b-[#1d3a20] focus:outline-none focus:ring-0 focus-visible:border-x-0 focus-visible:border-t-0 focus-visible:border-b-[#1d3a20] focus-visible:outline-none focus-visible:ring-0"
+                                            className="h-auto rounded-none border-0 border-b-2 border-[#c2c8be] bg-transparent px-0 py-2 text-[18px] leading-[1.6] text-[#191c1c] shadow-none focus-visible:ring-0 focus-visible:border-[#1d3a20]"
                                         />
                                         <div className="absolute inset-x-0 bottom-0 h-0.5 origin-center scale-x-0 bg-[#1d3a20] transition-transform group-focus-within:scale-x-100" />
                                     </div>
@@ -271,12 +262,12 @@ export default function Register() {
                                             <div className="relative">
                                                 <Textarea
                                                     id="address"
-                                                    rows={1}
+                                                    rows={2}
                                                     value={data.address}
                                                     onChange={(e) => setData('address', e.target.value)}
                                                     required
                                                     placeholder="Masukkan alamat operasional lengkap"
-                                                    className="h-12 min-h-12 resize-none appearance-none rounded-none border-x-0 border-t-0 border-b-2 border-[#c2c8be] bg-transparent px-0 py-2 text-[17px] leading-7 text-[#191c1c] shadow-none outline-none focus:border-x-0 focus:border-t-0 focus:border-b-[#1d3a20] focus:outline-none focus:ring-0 focus-visible:border-x-0 focus-visible:border-t-0 focus-visible:border-b-[#1d3a20] focus-visible:outline-none focus-visible:ring-0"
+                                                    className="min-h-0 resize-none rounded-none border-0 border-b-2 border-[#c2c8be] bg-transparent px-0 py-2 text-[18px] leading-[1.6] text-[#191c1c] shadow-none outline-none focus:border-[#1d3a20] focus:outline-none focus:ring-0 focus-visible:border-[#1d3a20] focus-visible:outline-none focus-visible:ring-0"
                                                 />
                                                 <div className="absolute inset-x-0 bottom-0 h-0.5 origin-center scale-x-0 bg-[#1d3a20] transition-transform group-focus-within:scale-x-100" />
                                             </div>
