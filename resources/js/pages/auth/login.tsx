@@ -30,7 +30,7 @@ export default function Login({ status, canResetPassword }: LoginProps) {
 
     return (
         <>
-            <Head title="Masuk - PilahPangan">
+            <Head title="Masuk - SayCle">
                 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
                 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
             </Head>
@@ -58,7 +58,7 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                         <div className="w-full max-w-md">
                             <Link href={route('home')} className="mb-5 flex items-center gap-2">
                                 <span className="material-symbols-outlined text-[#07240c] [font-size:32px] [font-variation-settings:'FILL'_1]">eco</span>
-                                <span className="font-['Space_Grotesk'] text-[24px] font-bold leading-[1.3] tracking-tight text-[#07240c]">PilahPangan.</span>
+                                <span className="font-['Space_Grotesk'] text-[24px] font-bold leading-[1.3] tracking-tight text-[#07240c]">SayCle</span>
                             </Link>
 
                             <div className="mb-5">
