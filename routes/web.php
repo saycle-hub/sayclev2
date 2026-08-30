@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use App\Http\Controllers\AllocationController;
 use App\Http\Controllers\ContractController;
 use App\Http\Controllers\PartnerController;
 use App\Http\Controllers\PriceController;
@@ -39,6 +40,13 @@ Route::middleware(['auth'])->group(function () {
         Route::get('contracts', [ContractController::class, 'index'])->name('contracts.index');
         Route::put('contracts/{contract}', [ContractController::class, 'update'])->name('contracts.update');
         Route::post('contracts/{contract}/action', [ContractController::class, 'action'])->name('contracts.action');
+
+        // Allocation engine (Fase 4).
+        Route::get('allocation', [AllocationController::class, 'index'])->name('allocation.index');
+        Route::post('allocation/run', [AllocationController::class, 'run'])->name('allocation.run');
+        Route::get('allocation/{grade}', [AllocationController::class, 'show'])->where('grade', 'Layak|Kurang Layak|Tidak Layak')->name('allocation.show');
+        Route::post('allocation/{allocation}/approve', [AllocationController::class, 'approve'])->name('allocation.approve');
+        Route::post('allocation/{allocation}/reject', [AllocationController::class, 'reject'])->name('allocation.reject');
 
         // Safe stubs for modules shipped in later phases, so admin nav never 404s.
         $stubs = [

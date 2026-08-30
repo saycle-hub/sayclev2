@@ -3,7 +3,7 @@ import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import { BarChart3, ClipboardList, FileText, HandCoins, Handshake, LayoutGrid, Package, Route, Scale, Tags, Truck, Users } from 'lucide-react';
+import { BarChart3, ClipboardList, FileText, HandCoins, Handshake, Layers, LayoutGrid, Package, Route, Scale, Tags, Truck, Users } from 'lucide-react';
 import AppLogo from './app-logo';
 
 const navByRole: Record<string, { home: NavItem; items: NavItem[] }> = {
@@ -13,6 +13,7 @@ const navByRole: Record<string, { home: NavItem; items: NavItem[] }> = {
             { title: 'Stok', url: '/stock', icon: Package },
             { title: 'Mitra', url: '/partners', icon: Users },
             { title: 'Kontrak', url: '/contracts', icon: Handshake },
+            { title: 'Alokasi', url: '/allocation', icon: Layers },
             { title: 'Rute', url: '/routes', icon: Route },
             { title: 'Tugas', url: '/tasks', icon: ClipboardList },
             { title: 'Harga', url: '/prices', icon: Tags },

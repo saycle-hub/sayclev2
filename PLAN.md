@@ -438,15 +438,17 @@ Phase 1-8 done ─> Phase 9 (PWA)
 
 ## Catatan PRD Compliance
 
+> Referensi tambahan: catatan tim (Agustus 2026) — Role: Supplier/Kita SaaS/Mitra. Klasifikasi: Layak→pakan ternak, Kurang Layak→maggot, Tidak Layak→kompos. 3 urgensi kapasitas (minimum/ideal/overcapacity); defisit = minimum dipenuhi dulu, surplus = mitra siap overcapacity dengan harga modal. MVP: lokasi supplier di map, perutean otomatis, penjadwalan otomatis, distribusi sesuai stok gudang, statistik (emisi karbon, sampah terolah), login hanya mitra+kita, dashboard admin (assign kurir, rute, jadwal, distribusi, statistik, harga 3 grade), dashboard kurir (pengambilan+pengantaran+form kg 3 grade), dashboard mitra (register min/ideal/max+jadwal, status pengiriman, total bayar).
+
 | PRD item | Fase | Status |
 |---|---|---|
 | FR-01 Form publik pemasok | Done | ✅ |
 | FR-02 Sale ID + token/PIN | Done | ✅ |
 | FR-03 Officer catat berat 3 grade | 6 | ⬜ |
 | FR-04 Officer catat pembayaran | 6 | ⬜ |
-| FR-05 Mitra min/ideal/max + frekuensi | 1+3 | ⬜ |
-| FR-06 Stok+alokasi per grade | 2+4 | ⬜ |
-| FR-07 Allocation engine | 4 | ⬜ |
+| FR-05 Mitra min/ideal/max + frekuensi | 1+3 | ✅ |
+| FR-06 Stok+alokasi per grade | 2+4 | ✅ |
+| FR-07 Allocation engine | 4 | ✅ |
 | FR-08 Smart Route (VRP+OSRM) | 5 | ⬜ |
 | FR-09 Dashboard statistik | 8 | ⬜ |
 | PWA | 9 | ⬜ |
