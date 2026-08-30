@@ -107,27 +107,26 @@ export default function Register() {
                 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
             </Head>
 
-            <main className="flex min-h-screen flex-col bg-[#f9f9f8] font-[Inter] text-[#191c1c] antialiased md:flex-row">
-                <aside className="relative hidden w-1/3 min-w-[320px] max-w-[480px] overflow-hidden bg-[#1d3a20] text-white md:flex md:flex-col md:justify-between">
-                    <div className="absolute inset-0 z-0 bg-[#1d3a20]/80" />
-                    <div className="relative z-10 flex h-full flex-col p-12">
-                        <div>
-                            <Link href={route('home')} className="mb-12 block text-[32px] font-semibold leading-[1.2] tracking-[-0.01em] text-white">
-                                SayCle
-                            </Link>
-                            <h2 className="mb-6 text-[24px] font-semibold leading-[1.3] text-[#adcfab]">Informasi Identitas</h2>
-                            <p className="text-[16px] leading-[1.5] text-[#e7e8e7]/90">
-                                Lengkapi profil organisasi Anda untuk memulai kolaborasi dalam ekosistem pangan sirkular. Data ini membantu kami memverifikasi dan menghubungkan Anda dengan mitra yang tepat.
-                            </p>
-                        </div>
-                        <div className="mt-auto flex items-center gap-2 text-[12px] font-semibold text-[#adcfab]">
+<main className="flex h-screen min-h-screen flex-col overflow-hidden bg-[#f9f9f8] font-[Inter] text-[#191c1c] antialiased md:flex-row">
+                 <aside className="relative hidden h-full w-1/3 min-w-[320px] max-w-[480px] overflow-hidden bg-[#1d3a20] text-white md:flex md:flex-col md:justify-between">
+                     <div className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_20%_20%,#47764f_0,transparent_40%),linear-gradient(160deg,#1d3a20,#092b16)] opacity-90" />
+                     <div className="relative z-10 flex h-full flex-col p-10 lg:p-12">
+                         <div>
+                             <Link href={route('home')} className="mb-8 block text-[32px] font-semibold leading-[1.2] tracking-[-0.01em] text-white">SayCle</Link>
+                             <h2 className="mb-4 text-[24px] font-semibold leading-[1.3] text-[#c9ecc6]">Informasi Identitas</h2>
+                             <p className="text-[16px] leading-[1.5] text-[#e7e8e7]/90">Lengkapi profil organisasi Anda untuk memulai kolaborasi dalam ekosistem pangan sirkular. Data ini membantu kami memverifikasi dan menghubungkan Anda dengan mitra yang tepat.</p>
+                            <div className="mt-10 overflow-hidden rounded-[24px] border border-white/15 bg-white/10 shadow-2xl">
+                                <img src="/ASET.png" alt="Ilustrasi pengelolaan sampah organik SayCle" className="block aspect-[4/3] w-full object-contain" />
+                            </div>
+                         </div>
+                         <div className="mt-auto flex items-center gap-2 text-[12px] font-semibold text-[#adcfab]">
                             <span className="material-symbols-outlined text-xl [font-variation-settings:'FILL'_1]">security</span>
                             <span>Secure Registration Process</span>
                         </div>
                     </div>
                 </aside>
 
-                <section className="flex flex-1 flex-col overflow-y-auto p-4 md:p-6 lg:overflow-hidden lg:px-12 lg:py-6">
+                <section className="flex h-full flex-1 flex-col overflow-y-auto p-4 md:p-6 lg:px-12 lg:py-6">
                     <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col">
                         <Link href={route('home')} className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-[#07240c] md:hidden">
                             <span className="material-symbols-outlined text-sm">arrow_back</span>

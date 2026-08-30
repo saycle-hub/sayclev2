@@ -1,15 +1,9 @@
-import { ContractSummary } from '@/components/partner/ContractSummary';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link } from '@inertiajs/react';
-import { CheckCircle2, Clock, Layers, Wallet } from 'lucide-react';
+import { CheckCircle2, ClipboardList, Layers3, ReceiptText, Truck, Wallet } from 'lucide-react';
 
-const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Beranda', href: '/partner' },
-];
+const breadcrumbs: BreadcrumbItem[] = [{ title: 'Beranda', href: '/partner' }];
 
 interface PartnerSummary {
     id: number;
@@ -41,98 +35,104 @@ interface Props {
     contract: OverviewContract | null;
 }
 
+const formatNumber = (value: number) => value.toLocaleString('id-ID', { maximumFractionDigits: 1 });
+const formatCurrency = (value: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(value);
+
 export default function PartnerOverview({ partner, stats, contract }: Props) {
+    const kpis = [
+        { icon: ClipboardList, label: 'Pengiriman menunggu', value: stats?.pending ?? 0 },
+        { icon: CheckCircle2, label: 'Pengiriman selesai', value: stats?.done ?? 0 },
+        { icon: Layers3, label: 'Alokasi minggu ini', value: formatNumber(stats?.allocated_kg ?? 0), suffix: 'kg' },
+        { icon: Wallet, label: 'Tagihan total', value: formatCurrency(stats?.billing ?? 0), currency: true },
+    ];
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Dasbor Mitra" />
-            <div className="flex h-full flex-1 flex-col gap-6 bg-[#f4f3ed] p-4 md:p-6">
-                <div>
-                    <p className="text-xs font-semibold uppercase tracking-[.2em] text-[#2f6848]">Portal mitra SayCle</p>
-                    <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[#18352a]">
-                        {partner ? `Selamat datang, ${partner.name}` : 'Dasbor Mitra'}
-                    </h1>
+            <main className="min-h-full flex-1 bg-[#f9f9f8] bg-[radial-gradient(circle_at_40%_20%,#f2f7ef_0,transparent_42%),radial-gradient(circle_at_80%_0%,#ecf2e8_0,transparent_40%),radial-gradient(circle_at_0%_55%,#f4f7f2_0,transparent_42%)] p-5 text-[#191c1c] md:p-8">
+                <div className="mx-auto max-w-7xl">
+                    <header className="mb-8 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+                        <div>
+                            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-[#476648]">Partner Portal</p>
+                            <h1 className="text-[30px] font-semibold tracking-[-0.01em] text-[#191c1c] md:text-[32px]">Selamat datang, {partner?.name ?? 'Mitra'}</h1>
+                            <p className="mt-2 text-[15px] text-[#424841]">Ringkasan aktivitas dan performa operasional Anda hari ini.</p>
+                        </div>
+                        <div className="flex items-center gap-3 self-start rounded-2xl bg-[#1d3a20] px-4 py-3 text-[#c9ecc6] shadow-sm lg:self-auto">
+                            <div className="grid size-9 place-items-center rounded-xl bg-white/10"><Layers3 className="size-5" /></div>
+                            <div>
+                                <p className="text-xs font-semibold text-white/80">Alokasi minggu ini</p>
+                                <p className="text-lg font-bold leading-tight">{formatNumber(stats?.allocated_kg ?? 0)} kg</p>
+                            </div>
+                        </div>
+                    </header>
+
+                    <section aria-label="Ringkasan metrik" className="mb-8 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+                        {kpis.map(({ icon: Icon, label, value, suffix, currency }) => (
+                            <Metric key={label} icon={Icon} label={label} value={String(value)} suffix={suffix} currency={currency} />
+                        ))}
+                    </section>
+
+                    <section className="grid gap-6 xl:grid-cols-12">
+                        <article className="rounded-[20px] border border-[#e1e3e2] bg-white p-6 shadow-[0_2px_8px_rgba(7,36,12,0.02)] xl:col-span-8">
+                            {contract ? (
+                                <>
+                                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                        <div>
+                                            <h2 className="text-2xl font-semibold tracking-[-0.01em] text-[#191c1c]">Kontrak Aktif</h2>
+                                            <p className="mt-1 text-sm text-[#424841]">Detail kapasitas dan status kelayakan.</p>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            <span className="rounded-lg bg-[#dbe6d2] px-3 py-1.5 text-xs font-semibold text-[#404a3b]">{contract.grade}</span>
+                                            <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#c9ecc6] px-3 py-1.5 text-xs font-semibold text-[#04210a]"><span className="size-2 rounded-full bg-[#07240c]" />{contract.status === 'active' ? 'Aktif' : contract.status}</span>
+                                        </div>
+                                    </div>
+                                    <div className="my-6 grid grid-cols-1 gap-5 border-y border-[#e1e3e2] py-5 sm:grid-cols-3">
+                                        <Capacity label="Kapasitas Min" value={contract.min_capacity_kg} />
+                                        <Capacity label="Kapasitas Ideal" value={contract.ideal_capacity_kg} />
+                                        <Capacity label="Kapasitas Maks" value={contract.max_capacity_kg} />
+                                    </div>
+                                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[#f3f4f3] px-4 py-3">
+                                        <span className="text-sm font-semibold text-[#424841]">Harga Beli</span>
+                                        <span className="text-xl font-semibold text-[#07240c]">{formatCurrency(contract.buy_price)} <span className="text-sm font-normal text-[#424841]">/kg</span></span>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="flex min-h-64 flex-col items-start justify-center">
+                                    <h2 className="text-2xl font-semibold text-[#191c1c]">Belum ada kontrak aktif</h2>
+                                    <p className="mt-2 text-sm text-[#424841]">Hubungi admin SayCle untuk pengaturan kontrak.</p>
+                                    <Link href="/partner/contract" className="mt-5 rounded-xl bg-[#1d3a20] px-4 py-2.5 text-sm font-semibold text-white">Lihat kontrak</Link>
+                                </div>
+                            )}
+                        </article>
+
+                        <aside className="flex min-h-[300px] flex-col rounded-[20px] border border-[#e1e3e2] bg-white p-6 shadow-[0_2px_8px_rgba(7,36,12,0.02)] xl:col-span-4">
+                            <div>
+                                <h2 className="text-xl font-semibold text-[#191c1c]">Aktivitas Terakhir</h2>
+                                <p className="mt-1 text-sm text-[#424841]">Tindakan terbaru dari akun Anda.</p>
+                            </div>
+                            <div className="mt-6 flex flex-1 flex-col gap-5">
+                                <Activity icon={Truck} title={`${stats?.pending ?? 0} pengiriman menunggu`} detail="Tinjau status pengiriman terbaru." />
+                                <Activity icon={ReceiptText} title="Ringkasan tagihan tersedia" detail={`${formatCurrency(stats?.billing ?? 0)} tercatat pada portal.`} />
+                            </div>
+                            <div className="mt-6 border-t border-[#e1e3e2] pt-4">
+                                <Link href="/partner/deliveries" className="flex min-h-11 items-center justify-center rounded-xl bg-[#1d3a20] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#163b1d]">Lihat Pengiriman</Link>
+                            </div>
+                        </aside>
+                    </section>
                 </div>
-
-                <section aria-label="Ringkasan" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <StatusCard icon={Clock} label="Pengiriman menunggu" value={stats?.pending ?? 0} />
-                    <StatusCard icon={CheckCircle2} label="Pengiriman selesai" value={stats?.done ?? 0} />
-                    <StatusCard icon={Layers} label="Alokasi minggu ini" value={stats?.allocated_kg ?? 0} unit="kg" />
-                    <StatusCard icon={Wallet} label="Tagihan total" value={stats?.billing ?? 0} unit="IDR" isCurrency />
-                </section>
-
-                <section aria-label="Kontrak aktif" className="grid gap-4 lg:grid-cols-2">
-                    {contract ? (
-                        <ContractSummary
-                            status={contract.status}
-                            grade={contract.grade}
-                            minCapacityKg={contract.min_capacity_kg}
-                            idealCapacityKg={contract.ideal_capacity_kg}
-                            maxCapacityKg={contract.max_capacity_kg}
-                            frequency={contract.frequency}
-                            buyPrice={contract.buy_price}
-                        />
-                    ) : (
-                        <Card className="rounded-2xl border-dashed border-[#2f6848]/30 bg-transparent shadow-none">
-                            <CardContent className="p-6 text-sm text-[#18352a]/70">
-                                Belum ada kontrak aktif. Hubungi admin SayCle untuk pengaturan kontrak.
-                            </CardContent>
-                        </Card>
-                    )}
-
-                    <Card className="rounded-2xl border-[#2f6848]/15 bg-[#2f6848] text-white shadow-none">
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-base font-semibold">Aksi cepat</CardTitle>
-                        </CardHeader>
-                        <CardContent className="flex flex-col gap-3 sm:flex-row lg:flex-col">
-                            <Button asChild className="min-h-11 bg-[#e88c12] text-[#18352a] hover:bg-[#e88c12]/90 focus-visible:ring-2 focus-visible:ring-[#e88c12] focus-visible:outline-none">
-                                <Link href="/partner/deliveries">Lihat pengiriman</Link>
-                            </Button>
-                            <Button
-                                asChild
-                                variant="outline"
-                                className="min-h-11 border-white/40 bg-transparent text-white hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-[#e88c12] focus-visible:outline-none"
-                            >
-                                <Link href="/partner/billing">Cek tagihan</Link>
-                            </Button>
-                        </CardContent>
-                        <p className="px-6 pb-6 text-sm text-white/75">
-                            Tinjau status setoran terbaru dan rincian tagihan Anda.
-                        </p>
-                        {partner?.grade_preference && (
-                            <Badge className="mx-6 mb-6 bg-white/15 text-white">{partner.grade_preference}</Badge>
-                        )}
-                    </Card>
-                </section>
-            </div>
+            </main>
         </AppLayout>
     );
 }
 
-function StatusCard({ icon: Icon, label, value, unit, isCurrency = false }: {
-    icon: React.ComponentType<{ className?: string }>;
-    label: string;
-    value: number;
-    unit?: string;
-    isCurrency?: boolean;
-}) {
-    const formatted = isCurrency
-        ? new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(value)
-        : value.toLocaleString('id-ID', { maximumFractionDigits: 1 });
+function Metric({ icon: Icon, label, value, suffix, currency }: { icon: typeof Truck; label: string; value: string; suffix?: string; currency?: boolean }) {
+    return <article className="flex min-h-[116px] items-center rounded-xl border border-[#e1e3e2] bg-white p-5 transition-shadow hover:shadow-[0_4px_20px_rgba(29,58,32,0.05)]"><div className="mr-4 grid size-12 shrink-0 place-items-center rounded-full bg-[#dbe6d2] text-[#1d3a20]"><Icon className="size-6" /></div><div><p className="text-xs font-semibold text-[#424841]">{label}</p><p className={`mt-1 font-semibold text-[#07240c] ${currency ? 'text-[28px] leading-tight' : 'text-2xl'}`}>{value}{suffix && <span className="ml-1 text-base font-normal text-[#424841]">{suffix}</span>}</p></div></article>;
+}
 
-    return (
-        <Card className="rounded-2xl border-[#2f6848]/15 bg-white shadow-none">
-            <CardContent className="flex items-start gap-4 p-5">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#2f6848]/10 text-[#2f6848]">
-                    <Icon className="h-5 w-5" aria-hidden="true" />
-                </div>
-                <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-[#18352a]/70">{label}</p>
-                    <p className="mt-1 truncate text-2xl font-semibold tracking-tight text-[#18352a] tabular-nums">
-                        {formatted}
-                        {unit && !isCurrency ? ` ${unit}` : ''}
-                    </p>
-                </div>
-            </CardContent>
-        </Card>
-    );
+function Capacity({ label, value }: { label: string; value: number }) {
+    return <div><p className="text-sm font-semibold text-[#424841]">{label}</p><p className="mt-2 text-lg font-semibold text-[#191c1c]">{formatNumber(value)} kg</p></div>;
+}
+
+function Activity({ icon: Icon, title, detail }: { icon: typeof Truck; title: string; detail: string }) {
+    return <div className="flex items-start gap-3"><div className="grid size-8 shrink-0 place-items-center rounded-full bg-[#dbe6d2] text-[#151e12]"><Icon className="size-4" /></div><div><p className="text-sm font-semibold text-[#191c1c]">{title}</p><p className="mt-1 text-xs leading-5 text-[#424841]">{detail}</p></div></div>;
 }
