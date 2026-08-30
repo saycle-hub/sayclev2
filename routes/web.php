@@ -5,6 +5,7 @@ use Inertia\Inertia;
 use App\Http\Controllers\AllocationController;
 use App\Http\Controllers\ContractController;
 use App\Http\Controllers\PartnerController;
+use App\Http\Controllers\PartnerPortalController;
 use App\Http\Controllers\PriceController;
 use App\Http\Controllers\RouteController;
 use App\Http\Controllers\SaleController;
@@ -74,8 +75,13 @@ Route::middleware(['auth'])->group(function () {
         Route::post('tasks/{task}/checkin', [App\Http\Controllers\OfficerController::class, 'checkin'])->name('tasks.checkin');
     });
 
-    Route::get('partner', fn () => Inertia::render('partner/index'))->middleware('role:partner')->name('partner');
-    Route::middleware('role:partner')->prefix('partner')->group(function () { foreach (['deliveries', 'contract', 'billing'] as $page) Route::get($page, fn () => Inertia::render('partner/index')); });
+    // Partner self-service portal (Fase 7).
+    Route::middleware('role:partner')->prefix('partner')->name('partner.')->group(function () {
+        Route::get('/', [PartnerPortalController::class, 'index'])->name('index');
+        Route::get('deliveries', [PartnerPortalController::class, 'deliveries'])->name('deliveries');
+        Route::get('contract', [PartnerPortalController::class, 'contract'])->name('contract');
+        Route::get('billing', [PartnerPortalController::class, 'billing'])->name('billing');
+    });
 });
 
 require __DIR__.'/settings.php';

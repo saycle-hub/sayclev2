@@ -53,6 +53,6 @@ class RegisteredUserController extends Controller
 
         Auth::login($user);
 
-        return to_route($partner ? 'partner' : 'dashboard');
+        return to_route($partner ? 'partner.index' : 'dashboard');
     }
 }
