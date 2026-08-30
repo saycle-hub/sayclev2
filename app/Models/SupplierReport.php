@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class SupplierReport extends Model
 {
@@ -23,4 +24,6 @@ class SupplierReport extends Model
     {
         return $this->hasMany(Pickup::class);
     }
+
+    public function pickup(): HasOne { return $this->hasOne(Pickup::class); }
 }

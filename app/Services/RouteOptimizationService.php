@@ -2,12 +2,13 @@
 
 namespace App\Services;
 
-use App\Models\PickupTask;
-use App\Models\Sale;
+use App\Models\Pickup;
+use App\Models\SupplierReport;
 use App\Models\Vehicle;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use Throwable;
 
 class RouteOptimizationService
@@ -35,8 +36,7 @@ class RouteOptimizationService
     public function optimize(): array
     {
         // Delete pending tasks first so their sales re-enter the pool.
-        PickupTask::query()->where('status', 'pending')->delete();
-
+        return DB::transaction(function () {
         $sales = $this->collectibleSales();
 
         if ($sales->isEmpty()) {
@@ -77,7 +77,7 @@ class RouteOptimizationService
             'unassigned_kg' => round($unassigned->sum('kg'), 2),
             'vehicles' => count($assignments),
             'used_osrm' => $usedOsrm,
-        ];
+        ]; });
     }
 
     /**
@@ -86,18 +86,19 @@ class RouteOptimizationService
      */
     private function collectibleSales(): Collection
     {
-        return Sale::query()
-            ->whereIn('status', ['Pending review', 'Accepted'])
+        return SupplierReport::query()
+            ->where('status', 'accepted')
+            ->where('estimated_kg', '>', 0)
             ->whereNotNull('latitude')
             ->whereNotNull('longitude')
-            ->whereDoesntHave('pickupTasks', fn ($q) => $q->whereIn('status', ['pending', 'assigned', 'in_progress']))
+            ->whereDoesntHave('pickups', fn ($q) => $q->whereIn('status', ['planned', 'assigned', 'in_progress', 'completed']))
             ->orderBy('id')
             ->get()
-            ->map(fn (Sale $sale) => [
-                'sale_id' => $sale->id,
+            ->map(fn (SupplierReport $sale) => [
+                'supplier_report_id' => $sale->id,
                 'lat' => (float) $sale->latitude,
                 'lng' => (float) $sale->longitude,
-                'kg' => (float) $sale->estimate_kg,
+                'kg' => (float) $sale->estimated_kg,
             ])
             ->filter(fn (array $p) => $p['lat'] !== 0.0 || $p['lng'] !== 0.0)
             ->values();
@@ -173,15 +174,19 @@ class RouteOptimizationService
         $legs = $this->computeLegs($ordered);
 
         foreach ($ordered as $index => $stop) {
-            PickupTask::create([
-                'sale_id' => $stop['sale_id'],
+            $pickup = Pickup::firstOrNew(['supplier_report_id' => $stop['supplier_report_id']]);
+            if ($pickup->exists && $pickup->status !== 'planned') continue;
+            $pickup->fill([
+                'supplier_report_id' => $stop['supplier_report_id'],
                 'vehicle_id' => $vehicleId,
                 'stop_order' => $index + 1,
-                'status' => 'pending',
+                'status' => 'planned',
                 'estimated_kg' => $stop['kg'],
                 'distance_m' => $legs[$index]['distance_m'],
                 'duration_s' => $legs[$index]['duration_s'],
             ]);
+            $pickup->save();
+            SupplierReport::whereKey($stop['supplier_report_id'])->where('status', 'accepted')->update(['status' => 'pickup_scheduled']);
         }
 
         return $legs[0]['source'] === 'osrm';

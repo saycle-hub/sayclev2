@@ -3,6 +3,8 @@ import { KeyRound, Search } from 'lucide-react';
 import { FormEvent } from 'react';
 
 type Sale = { public_id: string; status: string; estimate_kg: number | null; created_at: string };
+const canonical = ['submitted', 'under_review', 'accepted', 'pickup_scheduled', 'picked_up', 'closed'];
+const statusLabel: Record<string, string> = { submitted: 'Terkirim', under_review: 'Sedang ditinjau', accepted: 'Diterima', rejected: 'Ditolak', pickup_scheduled: 'Pickup dijadwalkan', picked_up: 'Sudah dijemput', closed: 'Selesai' };
 const statusText: Record<string, string> = { 'Pending review': 'Laporan sedang ditinjau petugas sebelum pickup dapat dijadwalkan.', pending_review: 'Laporan sedang ditinjau petugas sebelum pickup dapat dijadwalkan.', approved: 'Laporan disetujui dan menunggu pengaturan pickup.', scheduled: 'Pickup sudah dijadwalkan.', picked_up: 'Material sudah dijemput.', completed: 'Laporan selesai diproses.', rejected: 'Laporan belum dapat diproses.' };
 export default function Tracking({ sale }: { sale?: Sale }) {
     const form = useForm({ public_id: '', pin: '' });

@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\PickupTask;
-use App\Models\Sale;
+use App\Models\Pickup;
+use App\Models\SupplierReport;
 use App\Models\User;
 use App\Models\Vehicle;
 use App\Services\RouteOptimizationService;
@@ -29,11 +29,11 @@ class RouteController extends Controller
         $vehicles = Vehicle::query()->where('is_active', true)->orderBy('name')->get();
 
         $routes = $vehicles->values()->map(function (Vehicle $v, int $i) {
-            $tasks = PickupTask::query()
+            $tasks = Pickup::query()
                 ->where('vehicle_id', $v->id)
-                ->whereIn('status', ['pending', 'assigned'])
+                ->whereIn('status', ['planned', 'assigned', 'in_progress'])
                 ->orderBy('stop_order')
-                ->with('sale:id,contact,latitude,longitude,manual_address')
+                ->with('supplierReport:id,contact_name,latitude,longitude,manual_address')
                 ->get();
 
             $officer = $tasks->first(fn ($t) => $t->officer_id)?->officer;
@@ -48,13 +48,13 @@ class RouteController extends Controller
                 'duration_min' => (int) ceil((float) $tasks->sum('duration_s') / 60),
                 'all_assigned' => $tasks->isNotEmpty() && $tasks->every(fn ($t) => $t->status === 'assigned'),
                 'officer_name' => $officer?->name,
-                'stops' => $tasks->map(fn (PickupTask $t) => [
+                'stops' => $tasks->map(fn (Pickup $t) => [
                     'id' => $t->id,
                     'order' => $t->stop_order,
-                    'contact' => $t->sale?->contact ?? '—',
-                    'address' => $t->sale?->manual_address ?? '',
-                    'lat' => (float) ($t->sale?->latitude ?? 0),
-                    'lng' => (float) ($t->sale?->longitude ?? 0),
+                    'contact' => $t->supplierReport?->contact_name ?? '—',
+                    'address' => $t->supplierReport?->manual_address ?? '',
+                    'lat' => (float) ($t->supplierReport?->latitude ?? 0),
+                    'lng' => (float) ($t->supplierReport?->longitude ?? 0),
                     'kg' => (float) $t->estimated_kg,
                     'distance_m' => (float) ($t->distance_m ?? 0),
                     'duration_s' => (int) ($t->duration_s ?? 0),
@@ -64,25 +64,22 @@ class RouteController extends Controller
         });
 
         // Sales eligible but not yet on any route
-        $routedSaleIds = PickupTask::query()
-            ->whereIn('status', ['pending', 'assigned', 'in_progress'])
-            ->pluck('sale_id');
+        $routedSaleIds = Pickup::query()->whereIn('status', ['planned', 'assigned', 'in_progress'])->pluck('supplier_report_id');
 
-        $unassigned = Sale::query()
-            ->whereIn('status', ['Pending review', 'Accepted'])
+        $unassigned = SupplierReport::query()
+            ->where('status', 'accepted')->where('estimated_kg', '>', 0)
             ->whereNotNull('latitude')->whereNotNull('longitude')
             ->whereNotIn('id', $routedSaleIds)
-            ->get(['id', 'contact', 'estimate_kg', 'latitude', 'longitude'])
-            ->map(fn (Sale $s) => [
+            ->get(['id', 'contact_name', 'estimated_kg', 'latitude', 'longitude'])
+            ->map(fn (SupplierReport $s) => [
                 'id' => $s->id,
-                'contact' => $s->contact,
-                'kg' => (float) $s->estimate_kg,
+                'contact' => $s->contact_name,
+                'kg' => (float) $s->estimated_kg,
                 'lat' => (float) $s->latitude,
                 'lng' => (float) $s->longitude,
             ]);
 
-        $noCoordsCount = Sale::query()
-            ->whereIn('status', ['Pending review', 'Accepted'])
+        $noCoordsCount = SupplierReport::query()->where('status', 'accepted')->where('estimated_kg', '>', 0)
             ->where(fn ($q) => $q->whereNull('latitude')->orWhereNull('longitude'))
             ->count();
 
@@ -113,11 +110,11 @@ class RouteController extends Controller
 
     public function show(Vehicle $vehicle): Response
     {
-        $tasks = PickupTask::query()
+        $tasks = Pickup::query()
             ->where('vehicle_id', $vehicle->id)
-            ->whereIn('status', ['pending', 'assigned', 'in_progress'])
+            ->whereIn('status', ['planned', 'assigned', 'in_progress'])
             ->orderBy('stop_order')
-            ->with('sale:id,contact,latitude,longitude,manual_address,estimate_kg')
+            ->with('supplierReport:id,contact_name,latitude,longitude,manual_address')
             ->get();
 
         return Inertia::render('routes/show', [
@@ -130,13 +127,13 @@ class RouteController extends Controller
                 'lat' => (float) config('saycle.depot.lat'),
                 'lng' => (float) config('saycle.depot.lng'),
             ],
-            'stops' => $tasks->map(fn (PickupTask $t) => [
+            'stops' => $tasks->map(fn (Pickup $t) => [
                 'id' => $t->id,
                 'order' => $t->stop_order,
-                'contact' => $t->sale?->contact ?? '—',
-                'address' => $t->sale?->manual_address ?? '',
-                'lat' => (float) ($t->sale?->latitude ?? 0),
-                'lng' => (float) ($t->sale?->longitude ?? 0),
+                'contact' => $t->supplierReport?->contact_name ?? '—',
+                'address' => $t->supplierReport?->manual_address ?? '',
+                'lat' => (float) ($t->supplierReport?->latitude ?? 0),
+                'lng' => (float) ($t->supplierReport?->longitude ?? 0),
                 'kg' => (float) $t->estimated_kg,
                 'distance_m' => (float) ($t->distance_m ?? 0),
                 'duration_s' => (int) ($t->duration_s ?? 0),
@@ -152,9 +149,9 @@ class RouteController extends Controller
             'officer_id' => ['required', 'integer', Rule::exists('users', 'id')->where('role', 'officer')],
         ]);
 
-        $count = PickupTask::query()
+        $count = Pickup::query()
             ->where('vehicle_id', $vehicle->id)
-            ->where('status', 'pending')
+            ->where('status', 'planned')
             ->update(['officer_id' => $data['officer_id'], 'status' => 'assigned']);
 
         if ($count === 0) {

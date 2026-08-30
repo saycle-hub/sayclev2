@@ -25,6 +25,9 @@ class Pickup extends Model
         return $this->belongsTo(SupplierReport::class);
     }
 
+    public function vehicle(): BelongsTo { return $this->belongsTo(Vehicle::class); }
+    public function officer(): BelongsTo { return $this->belongsTo(User::class, 'officer_id'); }
+
     public function lots(): HasMany
     {
         return $this->hasMany(ClassificationLot::class);

@@ -26,6 +26,11 @@ Route::middleware(['auth'])->group(function () {
     Route::get('dashboard', [StockController::class, 'dashboard'])->middleware('role:admin')->name('dashboard');
 
     Route::middleware('role:admin')->group(function () {
+        Route::get('supplier-reports', [App\Http\Controllers\SupplierReportController::class, 'index'])->name('supplier-reports.index');
+        Route::get('supplier-reports/{supplierReport}', [App\Http\Controllers\SupplierReportController::class, 'show'])->name('supplier-reports.show');
+        Route::get('supplier-reports/{supplierReport}/photo', [App\Http\Controllers\SupplierReportController::class, 'photo'])->name('supplier-reports.photo');
+        Route::post('supplier-reports/{supplierReport}/accept', [App\Http\Controllers\SupplierReportController::class, 'accept'])->name('supplier-reports.accept');
+        Route::post('supplier-reports/{supplierReport}/reject', [App\Http\Controllers\SupplierReportController::class, 'reject'])->name('supplier-reports.reject');
         Route::get('stock', [StockController::class, 'index'])->name('stock.index');
         Route::get('stock/adjust', fn () => Inertia::render('stock/adjust'))->name('stock.adjust.create');
         Route::post('stock/adjust', [StockController::class, 'adjust'])->name('stock.adjust');
