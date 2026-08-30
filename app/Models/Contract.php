@@ -24,6 +24,7 @@ class Contract extends Model
         'ideal_capacity_kg',
         'max_capacity_kg',
         'frequency',
+        'monthly_day',
         'receiving_days',
         'buy_price',
         'sell_price',
@@ -42,6 +43,7 @@ class Contract extends Model
             'start_date' => 'date',
             'end_date' => 'date',
             'receiving_days' => 'array',
+            'monthly_day' => 'integer',
         ];
     }
 

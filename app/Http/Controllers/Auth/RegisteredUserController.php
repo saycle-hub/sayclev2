@@ -37,7 +37,7 @@ class RegisteredUserController extends Controller
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
             'address' => 'required|string|max:1000', 'min_capacity_kg' => 'required|numeric|min:0',
             'ideal_capacity_kg' => 'required|numeric|gte:min_capacity_kg', 'max_capacity_kg' => 'required|numeric|gte:ideal_capacity_kg',
-            'frequency' => 'required|in:harian,mingguan,bulanan', 'receiving_days' => 'required|array|min:1', 'receiving_days.*' => 'in:monday,tuesday,wednesday,thursday,friday,saturday,sunday', 'overcapacity_terms_accepted' => 'accepted',
+            'frequency' => 'required|in:harian,mingguan,bulanan', 'receiving_days' => 'nullable|array|required_if:frequency,mingguan|required_unless:frequency,harian,bulanan|min:1', 'receiving_days.*' => 'in:monday,tuesday,wednesday,thursday,friday,saturday,sunday', 'monthly_receiving_day' => 'nullable|integer|between:1,28|required_if:frequency,bulanan', 'overcapacity_terms_accepted' => 'accepted',
         ]);
 
         $user = User::create([
@@ -46,7 +46,7 @@ class RegisteredUserController extends Controller
             'password' => Hash::make($request->password),
             'role' => 'partner',
         ]);
-        Partner::create($request->only('name', 'address', 'grade_preference', 'min_capacity_kg', 'ideal_capacity_kg', 'max_capacity_kg', 'frequency', 'receiving_days') + ['user_id' => $user->id, 'overcapacity_terms_version' => Partner::OVERCAPACITY_TERMS_VERSION, 'overcapacity_terms_accepted_at' => now()]);
+        Partner::create($request->only('name', 'address', 'grade_preference', 'min_capacity_kg', 'ideal_capacity_kg', 'max_capacity_kg', 'frequency', 'receiving_days', 'monthly_receiving_day') + ['user_id' => $user->id, 'overcapacity_terms_version' => Partner::OVERCAPACITY_TERMS_VERSION, 'overcapacity_terms_accepted_at' => now()]);
 
         event(new Registered($user));
 

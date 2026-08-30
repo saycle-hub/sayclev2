@@ -23,6 +23,7 @@ interface RegisterForm {
     frequency: string;
     grade_preference: string;
     receiving_days: string[];
+    monthly_receiving_day: string;
     overcapacity_terms_accepted: boolean;
     [key: string]: string | string[] | boolean;
 }
@@ -84,6 +85,7 @@ export default function Register() {
         frequency: '',
         grade_preference: '',
         receiving_days: [],
+        monthly_receiving_day: '',
         overcapacity_terms_accepted: false,
     });
 
@@ -319,6 +321,7 @@ export default function Register() {
                                         </FieldShell>
 
                                         <FieldShell label="Preferensi grade">
+                                            {data.frequency === 'bulanan' && <><Label htmlFor="monthly_receiving_day">Tanggal penerimaan setiap bulan (1–28)</Label><Input id="monthly_receiving_day" type="number" min="1" max="28" value={data.monthly_receiving_day} onChange={(e) => setData('monthly_receiving_day', e.target.value)} required /><InputError message={errors.monthly_receiving_day} /></>}
                                             <GradeSelect id="grade_preference" ariaLabelledBy="grade-label" value={data.grade_preference} onChange={(value) => setData('grade_preference', value)} />
                                         </FieldShell>
                                     </div>

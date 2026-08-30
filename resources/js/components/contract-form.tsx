@@ -14,6 +14,7 @@ export interface ContractFormData {
     ideal_capacity_kg: string;
     max_capacity_kg: string;
     frequency: string;
+    monthly_day: string;
     receiving_days: string[];
     buy_price: string;
     sell_price: string;
@@ -30,6 +31,7 @@ export const emptyContractForm: ContractFormData = {
     ideal_capacity_kg: '',
     max_capacity_kg: '',
     frequency: '',
+    monthly_day: '',
     receiving_days: [],
     buy_price: '',
     sell_price: '',
@@ -46,6 +48,7 @@ export const CONTRACT_STATUSES = [
 const FREQUENCIES = [
     { value: 'harian', label: 'Harian' },
     { value: 'mingguan', label: 'Mingguan' },
+    { value: 'bulanan', label: 'Bulanan' },
 ] as const;
 const DAYS = [['monday', 'Sen'], ['tuesday', 'Sel'], ['wednesday', 'Rab'], ['thursday', 'Kam'], ['friday', 'Jum'], ['saturday', 'Sab'], ['sunday', 'Min']];
 

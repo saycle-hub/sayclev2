@@ -21,6 +21,7 @@ export interface ContractRow {
     max_capacity_kg: string | number;
     frequency: string;
     receiving_days: string[];
+    monthly_day: number | null;
     buy_price: string | number;
     sell_price: string | number;
     start_date: string | null;
@@ -49,6 +50,7 @@ function toFormData(contract: ContractRow): ContractFormData {
         max_capacity_kg: String(contract.max_capacity_kg),
         frequency: contract.frequency,
         receiving_days: contract.receiving_days ?? [],
+        monthly_day: contract.monthly_day ? String(contract.monthly_day) : '',
         buy_price: String(contract.buy_price),
         sell_price: String(contract.sell_price),
         start_date: contract.start_date ? contract.start_date.slice(0, 10) : '',
