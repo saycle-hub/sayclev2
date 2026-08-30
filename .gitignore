@@ -28,5 +28,12 @@ pnpm-debug.log
 *.log
 Thumbs.db
 
-# JCE context index runtime state
-.opencode-jce/context/
+# OpenCode/JCE internal files (dev only, not for production)
+.opencode/
+.opencode-jce/
+*.context.md
+loop-history/
+
+# Internal dev documentation (keep PLAN.md, remove others)
+DESIGN.md
+PRODUCT.md
