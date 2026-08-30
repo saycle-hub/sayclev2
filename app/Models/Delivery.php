@@ -13,11 +13,11 @@ class Delivery extends Model
 
     public const STATUSES = ['planned', 'assigned', 'in_transit', 'delivered', 'failed', 'cancelled'];
 
-    protected $fillable = ['partner_id', 'contract_id', 'status', 'scheduled_for', 'delivered_at', 'received_by', 'proof_path', 'notes'];
+    protected $fillable = ['partner_id', 'contract_id', 'service_date', 'status', 'scheduled_for', 'delivered_at', 'received_by', 'proof_path', 'notes'];
 
     protected function casts(): array
     {
-        return ['scheduled_for' => 'datetime', 'delivered_at' => 'datetime'];
+        return ['service_date' => 'date', 'scheduled_for' => 'datetime', 'delivered_at' => 'datetime'];
     }
 
     public function partner(): BelongsTo
@@ -29,4 +29,7 @@ class Delivery extends Model
     {
         return $this->hasMany(DeliveryLine::class);
     }
+
+    public function trips(): HasMany { return $this->hasMany(DeliveryTrip::class); }
+    public function contracts() { return $this->belongsToMany(Contract::class, 'delivery_contracts'); }
 }

@@ -23,4 +23,6 @@ class Reservation extends Model
     {
         return $this->belongsTo(Allocation::class);
     }
+
+    public function classificationLot(): BelongsTo { return $this->belongsTo(ClassificationLot::class); }
 }

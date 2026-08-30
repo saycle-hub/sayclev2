@@ -45,4 +45,6 @@ class Allocation extends Model
     {
         return $this->belongsTo(Contract::class);
     }
+
+    public function reservations() { return $this->hasMany(Reservation::class); }
 }

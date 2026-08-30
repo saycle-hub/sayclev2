@@ -21,4 +21,5 @@ class DeliveryLine extends Model
     {
         return $this->belongsTo(Delivery::class);
     }
+    public function reservation(): BelongsTo { return $this->belongsTo(Reservation::class); }
 }
