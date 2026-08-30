@@ -203,11 +203,20 @@ class PartnerPortalController extends Controller
             'ideal_capacity_kg' => (float) $c->ideal_capacity_kg,
             'max_capacity_kg' => (float) $c->max_capacity_kg,
             'frequency' => $c->frequency,
+            'receiving_days' => $c->frequency === 'harian' ? [] : ($c->receiving_days ?? []),
+            'schedule_summary' => $this->scheduleSummary($c->frequency, $c->receiving_days),
             'buy_price' => (float) $c->buy_price,
             'sell_price' => (float) $c->sell_price,
             'start_date' => $c->start_date?->toDateString(),
             'end_date' => $c->end_date?->toDateString(),
         ];
+    }
+
+    private function scheduleSummary(string $frequency, ?array $days): string
+    {
+        if ($frequency === 'harian') return 'Setiap hari';
+        $labels = ['monday' => 'Senin', 'tuesday' => 'Selasa', 'wednesday' => 'Rabu', 'thursday' => 'Kamis', 'friday' => 'Jumat', 'saturday' => 'Sabtu', 'sunday' => 'Minggu'];
+        return 'Setiap '.implode(', ', array_map(fn (string $day) => $labels[$day] ?? $day, $days ?? []));
     }
 
     /**

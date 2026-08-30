@@ -34,6 +34,7 @@ export interface PartnerContractRow {
     ideal_capacity_kg: number;
     max_capacity_kg: number;
     frequency: string;
+    receiving_days: string[];
     buy_price: number;
     sell_price: number;
     start_date: string | null;

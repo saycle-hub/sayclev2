@@ -33,6 +33,7 @@ interface OverviewContract {
     max_capacity_kg: number;
     frequency: string;
     buy_price: number;
+    receiving_days: string[];
 }
 
 interface Props {

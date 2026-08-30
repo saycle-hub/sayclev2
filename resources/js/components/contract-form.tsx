@@ -14,11 +14,12 @@ export interface ContractFormData {
     ideal_capacity_kg: string;
     max_capacity_kg: string;
     frequency: string;
+    receiving_days: string[];
     buy_price: string;
     sell_price: string;
     start_date: string;
     end_date: string;
-    [key: string]: string;
+    [key: string]: string | string[];
 }
 
 export const emptyContractForm: ContractFormData = {
@@ -29,6 +30,7 @@ export const emptyContractForm: ContractFormData = {
     ideal_capacity_kg: '',
     max_capacity_kg: '',
     frequency: '',
+    receiving_days: [],
     buy_price: '',
     sell_price: '',
     start_date: '',
@@ -44,8 +46,8 @@ export const CONTRACT_STATUSES = [
 const FREQUENCIES = [
     { value: 'harian', label: 'Harian' },
     { value: 'mingguan', label: 'Mingguan' },
-    { value: 'bulanan', label: 'Bulanan' },
 ] as const;
+const DAYS = [['monday', 'Sen'], ['tuesday', 'Sel'], ['wednesday', 'Rab'], ['thursday', 'Kam'], ['friday', 'Jum'], ['saturday', 'Sab'], ['sunday', 'Min']];
 
 interface ContractFormProps {
     form: ReturnType<typeof useForm<ContractFormData>>;
@@ -132,7 +134,7 @@ export function ContractForm({ form, idPrefix, showStatus = false }: ContractFor
                 </Select>
                 <InputError message={form.errors.frequency} />
             </div>
-
+            <fieldset className="space-y-2"><legend className="text-sm font-medium text-[#18352a]">Hari penerimaan</legend>{form.data.frequency === 'harian' ? <p className="text-sm text-[#18352a]/70">Harian berarti menerima setiap hari.</p> : form.data.frequency === 'bulanan' ? <p className="text-sm text-[#18352a]/70">Belum didukung.</p> : <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">{DAYS.map(([value, label]) => <label key={value} className="flex cursor-pointer items-center justify-center gap-1 rounded-lg border border-[#2f6848]/20 px-2 py-2 text-sm has-[:checked]:bg-[#2f6848]/10"><input type="checkbox" checked={form.data.receiving_days.includes(value)} onChange={(e) => form.setData('receiving_days', e.target.checked ? [...form.data.receiving_days, value] : form.data.receiving_days.filter((day) => day !== value))} className="accent-[#2f6848]" />{label}</label>)}</div>}<InputError message={form.errors.receiving_days} /></fieldset>
             <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                     <Label htmlFor={`${idPrefix}-buy-price`}>Harga beli (Rp/kg)</Label>

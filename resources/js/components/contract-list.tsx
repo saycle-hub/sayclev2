@@ -20,6 +20,7 @@ export interface ContractRow {
     ideal_capacity_kg: string | number;
     max_capacity_kg: string | number;
     frequency: string;
+    receiving_days: string[];
     buy_price: string | number;
     sell_price: string | number;
     start_date: string | null;
@@ -47,6 +48,7 @@ function toFormData(contract: ContractRow): ContractFormData {
         ideal_capacity_kg: String(contract.ideal_capacity_kg),
         max_capacity_kg: String(contract.max_capacity_kg),
         frequency: contract.frequency,
+        receiving_days: contract.receiving_days ?? [],
         buy_price: String(contract.buy_price),
         sell_price: String(contract.sell_price),
         start_date: contract.start_date ? contract.start_date.slice(0, 10) : '',
@@ -224,7 +226,7 @@ export function ContractList({ contracts, partnerName, className }: { contracts:
                             </span>{' '}
                             kg/minggu (ideal {formatKg(c.ideal_capacity_kg)})
                         </p>
-                        <p>{FREQUENCY_LABELS[c.frequency] ?? c.frequency}</p>
+                        <p>{FREQUENCY_LABELS[c.frequency] ?? c.frequency} · {c.frequency === 'harian' ? 'Setiap hari' : c.frequency === 'bulanan' ? 'Belum didukung' : (c.receiving_days ?? []).join(', ') || 'Hari belum dipilih'}</p>
                         <div className="flex gap-2">
                             <PriceBadge label="Beli" value={Number(c.buy_price)} />
                             <PriceBadge label="Jual" value={Number(c.sell_price)} />

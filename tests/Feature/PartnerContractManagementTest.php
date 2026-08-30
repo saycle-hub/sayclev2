@@ -27,6 +27,7 @@ class PartnerContractManagementTest extends TestCase
             'ideal_capacity_kg' => 250,
             'max_capacity_kg' => 500,
             'frequency' => 'mingguan',
+            'receiving_days' => ['monday'],
         ], $overrides);
     }
 
@@ -38,6 +39,7 @@ class PartnerContractManagementTest extends TestCase
             'ideal_capacity_kg' => 120,
             'max_capacity_kg' => 300,
             'frequency' => 'mingguan',
+            'receiving_days' => ['monday'],
             'buy_price' => 1000,
             'sell_price' => 2500,
         ], $overrides);

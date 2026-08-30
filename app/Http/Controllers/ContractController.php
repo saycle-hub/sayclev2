@@ -23,7 +23,11 @@ class ContractController extends Controller
             ->get();
 
         return Inertia::render('contracts/index', [
-            'contracts' => $contracts,
+            'contracts' => $contracts->map(fn (Contract $contract) => [
+                ...$contract->toArray(),
+                'receiving_days' => $contract->frequency === 'harian' ? [] : ($contract->receiving_days ?? []),
+                'schedule_summary' => $this->scheduleSummary($contract->frequency, $contract->receiving_days),
+            ]),
             'stats' => [
                 'total' => $contracts->count(),
                 'active' => $contracts->where('status', 'active')->count(),
@@ -94,7 +98,9 @@ class ContractController extends Controller
             'min_capacity_kg' => ['required', 'numeric', 'min:0', 'max:99999999'],
             'ideal_capacity_kg' => ['required', 'numeric', 'min:0', 'max:99999999', 'gte:min_capacity_kg'],
             'max_capacity_kg' => ['required', 'numeric', 'min:0', 'max:99999999', 'gte:ideal_capacity_kg'],
-            'frequency' => ['required', 'string', Rule::in(Contract::FREQUENCIES)],
+            'frequency' => ['required', 'string', Rule::in(['harian', 'mingguan'])],
+            'receiving_days' => ['nullable', 'array', 'required_if:frequency,mingguan', 'min:1'],
+            'receiving_days.*' => ['string', Rule::in(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'])],
             'buy_price' => ['required', 'numeric', 'min:0', 'max:999999999'],
             'sell_price' => ['required', 'numeric', 'min:0', 'max:999999999'],
             'start_date' => ['nullable', 'date'],
@@ -110,12 +116,22 @@ class ContractController extends Controller
             'max_capacity_kg.required' => 'Kapasitas maksimum wajib diisi.',
             'max_capacity_kg.gte' => 'Kapasitas maksimum tidak boleh lebih kecil dari ideal.',
             'frequency.required' => 'Frekuensi wajib dipilih.',
-            'frequency.in' => 'Frekuensi tidak valid.',
+            'frequency.in' => 'Frekuensi bulanan belum tersedia; pilih harian atau mingguan.',
             'buy_price.required' => 'Harga beli wajib diisi.',
             'buy_price.min' => 'Harga beli tidak boleh negatif.',
             'sell_price.required' => 'Harga jual wajib diisi.',
             'sell_price.min' => 'Harga jual tidak boleh negatif.',
             'end_date.after_or_equal' => 'Tanggal berakhir tidak boleh sebelum tanggal mulai.',
-        ]);
+        ]) + ['receiving_days' => $request->input('frequency') === 'harian' ? [] : array_values(array_unique($request->input('receiving_days', [])))];
+    }
+
+    private function scheduleSummary(string $frequency, ?array $days): string
+    {
+        if ($frequency === 'harian') {
+            return 'Setiap hari';
+        }
+
+        $labels = ['monday' => 'Senin', 'tuesday' => 'Selasa', 'wednesday' => 'Rabu', 'thursday' => 'Kamis', 'friday' => 'Jumat', 'saturday' => 'Sabtu', 'sunday' => 'Minggu'];
+        return 'Setiap '.implode(', ', array_map(fn (string $day) => $labels[$day] ?? $day, $days ?? []));
     }
 }
