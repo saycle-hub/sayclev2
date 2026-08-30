@@ -9,7 +9,7 @@ export function CapacityInput({ values, onChange, error, fieldErrors = {} }: { v
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             {fields.map(([key, label]) => <div key={key}>
                 <Label htmlFor={key}>{label} (kg/minggu)</Label>
-                <Input id={key} type="number" inputMode="decimal" value={values[key]} aria-invalid={Boolean(fieldErrors[key])} aria-describedby={fieldErrors[key] ? `${key}-error` : undefined} onChange={e => onChange(key, e.target.value)} className="h-12 rounded-lg border-[#c2c8be] bg-white text-[#191c1c] shadow-none focus:border-[#1d3a20] focus:bg-white focus:ring-[#1d3a20]/20" />
+                <Input id={key} type="number" inputMode="decimal" value={values[key]} aria-invalid={Boolean(fieldErrors[key])} aria-describedby={fieldErrors[key] ? `${key}-error` : undefined} onChange={e => onChange(key, e.target.value)} className="min-h-11 focus:border-[#e88c12] focus:ring-[#e88c12]/30" />
                 {fieldErrors[key] && <p id={`${key}-error`} className="text-sm text-red-700">{fieldErrors[key]}</p>}
             </div>)}
         </div>

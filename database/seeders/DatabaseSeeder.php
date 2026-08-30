@@ -35,5 +35,12 @@ class DatabaseSeeder extends Seeder
                 'frequency' => 'mingguan',
             ],
         );
+
+        User::updateOrCreate(['email' => 'admin@mail.com'], [
+            'name' => 'Admin',
+            'email' => 'admin@mail.com',
+            'role' => 'admin',
+            'password' => Hash::make('password'),
+        ]);
     }
 }

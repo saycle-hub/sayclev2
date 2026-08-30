@@ -197,11 +197,20 @@ class StockManagementTest extends TestCase
     {
         $admin = $this->admin();
 
-        foreach (['partners', 'contracts', 'routes', 'tasks', 'stats'] as $path) {
-            $this->actingAs($admin)->get("/{$path}")
-                ->assertOk()
-                ->assertInertia(fn ($page) => $page->component('coming-soon')->has('module'));
-        }
+        // Only the tasks module remains a stub; routes (Fase 5) and stats
+        // (Fase 8) now have real pages, asserted below.
+        $this->actingAs($admin)->get('/tasks')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->component('coming-soon')->has('module'));
+
+        // Replaced stubs must render their real components (nav never 404s).
+        $this->actingAs($admin)->get('/routes')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->component('routes/index'));
+
+        $this->actingAs($admin)->get('/stats')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->component('stats/index'));
     }
 
     public function test_flash_success_is_shared_with_inertia(): void

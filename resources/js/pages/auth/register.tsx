@@ -122,7 +122,7 @@ export default function Register() {
                     <div className="relative z-10 flex h-full flex-col p-12">
                         <div>
                             <Link href={route('home')} className="mb-12 block text-[32px] font-semibold leading-[1.2] tracking-[-0.01em] text-white">
-                                PilahPangan
+                                SayCle
                             </Link>
                             <h2 className="mb-6 text-[24px] font-semibold leading-[1.3] text-[#adcfab]">Informasi Identitas</h2>
                             <p className="text-[16px] leading-[1.5] text-[#e7e8e7]/90">

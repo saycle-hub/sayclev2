@@ -44,6 +44,6 @@ class RegistrationTest extends TestCase
         ]);
 
         $this->assertAuthenticated();
-        $response->assertRedirect(route('partner', absolute: false));
+        $response->assertRedirect(route('partner.index', absolute: false));
     }
 }
