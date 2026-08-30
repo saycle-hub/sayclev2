@@ -33,6 +33,8 @@ Thumbs.db
 .opencode-jce/
 *.context.md
 loop-history/
+.playwright-mcp/
+.impeccable/
 
 # Internal dev documentation (keep PLAN.md, remove others)
 DESIGN.md
