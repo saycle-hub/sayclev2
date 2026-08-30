@@ -36,9 +36,9 @@ class OfficerTest extends TestCase
             'frequency' => 'harian',
         ]);
 
-        $sale = Sale::create([
+        $sale = (new Sale)->forceFill([
             'partner_id' => $partner->id,
-            'public_id' => 'TEST-' . now()->format('YmdHis'),
+            'public_id' => 'TEST-' . now()->format('YmdHis') . '-' . bin2hex(random_bytes(2)),
             'contact_name' => 'Test Supplier',
             'phone' => '081234567890',
             'address' => 'Test Address',
@@ -46,9 +46,17 @@ class OfficerTest extends TestCase
             'status' => 'scheduled',
             'latitude' => -6.9932,
             'longitude' => 110.4203,
+            // Legacy intake columns (still NOT NULL, still written by the
+            // public intake flow) must be filled for the insert to pass.
+            'contact' => 'Test Supplier',
+            'estimate_kg' => 50.0,
+            'location_consent' => true,
+            'photo_path' => 'test/sales/fake.jpg',
+            'pin_hash' => 'test-pin',
         ]);
+        $sale->save();
 
-        $vehicle = Vehicle::factory()->create();
+        $vehicle = Vehicle::create(['name' => 'Test Vehicle', 'capacity_kg' => 500, 'is_active' => true]);
 
         return PickupTask::create(array_merge([
             'sale_id' => $sale->id,
