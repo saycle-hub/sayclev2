@@ -30,7 +30,8 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
                 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet" />
             </Head>
-            <main className="flex h-screen min-h-screen overflow-hidden bg-[#f8faf5] font-[Inter] text-[16px] leading-[1.5] text-[#191c1a] antialiased">
+            <main className="relative flex h-screen min-h-screen overflow-hidden bg-[#f8faf5] font-[Inter] text-[16px] leading-[1.5] text-[#191c1a] antialiased">
+                <Link href={route('home')} className="absolute left-6 top-6 z-20 inline-flex items-center gap-2 rounded-xl border border-[#c2c8be] bg-[#f8faf5]/90 px-4 py-2.5 text-sm font-semibold text-[#07240c] shadow-sm backdrop-blur transition-colors hover:bg-[#f2f4f0]"><span className="material-symbols-outlined text-[18px] leading-none">arrow_back</span>Kembali</Link>
                 <section className="relative hidden h-full w-1/2 items-center justify-center overflow-hidden bg-[#f2f4f0] p-10 lg:flex xl:p-12">
                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,_var(--tw-gradient-stops))] from-[#c9ecc6] to-transparent opacity-20" />
                     <div className="absolute right-0 top-0 h-[500px] w-[500px] -translate-y-1/2 translate-x-1/3 rounded-full bg-[#cdebc5]/30 blur-3xl" />
@@ -44,7 +45,6 @@ export default function Login({ status, canResetPassword }: LoginProps) {
 
                 <section className="flex h-full w-full items-center justify-center overflow-y-auto bg-[#f8faf5] p-6 sm:p-8 lg:w-1/2 lg:p-10">
                     <div className="w-full max-w-md py-4">
-                        <Link href={route('home')} className="mb-5 inline-flex items-center gap-2 rounded-xl border border-[#c2c8be] px-4 py-2.5 text-sm font-semibold text-[#07240c] transition-colors hover:bg-[#f2f4f0]"><span className="material-symbols-outlined text-[18px] leading-none">arrow_back</span>Kembali</Link>
                         <Link href={route('home')} className="mb-6 flex items-center gap-2 text-[#07240c]"><span className="material-symbols-outlined [font-size:32px] [font-variation-settings:'FILL'_1]">eco</span><span className="font-['Space_Grotesk'] text-2xl font-bold tracking-tight">PilahPangan.</span></Link>
                         <div className="mb-6"><h2 className="mb-2 font-['Space_Grotesk'] text-[32px] font-semibold leading-[1.2] tracking-[-0.01em]">Selamat Datang Kembali</h2><p className="text-[#424841]">Silakan masuk ke akun Anda untuk melanjutkan.</p></div>
                         <div className="rounded-xl border border-[#c2c8be] bg-white p-5 shadow-[0_8px_24px_rgba(29,58,32,0.06)] sm:p-6">
