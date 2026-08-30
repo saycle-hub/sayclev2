@@ -32,10 +32,6 @@ function formatDate(value: string): string {
     return new Date(value).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
-function formatKg(value: string | number): string {
-    return `${Number(value).toLocaleString('id-ID', { maximumFractionDigits: 1 })} kg`;
-}
-
 export function StockTable({ entries, className }: { entries: StockEntry[]; className?: string }) {
     const [gradeFilter, setGradeFilter] = useState<string>('Semua grade');
     const [sortDesc, setSortDesc] = useState(true);

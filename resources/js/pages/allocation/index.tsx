@@ -32,7 +32,7 @@ function formatKg(value: number): string {
     return `${value.toLocaleString('id-ID', { maximumFractionDigits: 1 })} kg`;
 }
 
-export default function AllocationIndex({ weekStart, hasRun, overview, pendingOvercapacity }: { weekStart: string; hasRun: boolean; overview: OverviewRow[]; pendingOvercapacity: number }) {
+export default function AllocationIndex({ hasRun, overview, pendingOvercapacity }: { weekStart?: string; hasRun: boolean; overview: OverviewRow[]; pendingOvercapacity: number }) {
     const form = useForm({});
 
     const run = () => {

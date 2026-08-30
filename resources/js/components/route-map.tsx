@@ -33,6 +33,9 @@ export function RouteMap({ depot, stops, lines, className = '' }: RouteMapProps)
         };
     }, []);
 
+    const stopsKey = JSON.stringify(stops);
+    const linesKey = JSON.stringify(lines);
+
     useEffect(() => {
         if (!ready || !ref.current) return;
 
@@ -108,7 +111,7 @@ export function RouteMap({ depot, stops, lines, className = '' }: RouteMapProps)
         return () => {
             cancelled = true;
         };
-    }, [ready, depot.lat, depot.lng, JSON.stringify(stops), JSON.stringify(lines)]);
+    }, [ready, depot.lat, depot.lng, stops, lines, stopsKey, linesKey]);
 
     return <div ref={ref} className={`z-0 ${className}`} />;
 }
