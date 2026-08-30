@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Domain\Grade;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Contract extends Model
 {
-    public const GRADES = ['Layak', 'Kurang Layak', 'Tidak Layak'];
+    public const GRADES = Grade::ALL;
 
     public const FREQUENCIES = ['harian', 'mingguan', 'bulanan'];
 
@@ -18,10 +19,12 @@ class Contract extends Model
         'name',
         'status',
         'grade',
+        'intended_use',
         'min_capacity_kg',
         'ideal_capacity_kg',
         'max_capacity_kg',
         'frequency',
+        'receiving_days',
         'buy_price',
         'sell_price',
         'start_date',
@@ -38,6 +41,7 @@ class Contract extends Model
             'sell_price' => 'decimal:2',
             'start_date' => 'date',
             'end_date' => 'date',
+            'receiving_days' => 'array',
         ];
     }
 

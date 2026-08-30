@@ -2,11 +2,12 @@
 
 namespace App\Models;
 
+use App\Domain\Grade;
 use Illuminate\Database\Eloquent\Model;
 
 class Stock extends Model
 {
-    public const GRADES = ['Layak', 'Kurang Layak', 'Tidak Layak'];
+    public const GRADES = Grade::ALL;
 
     public const TYPES = ['in', 'out', 'adjust'];
 

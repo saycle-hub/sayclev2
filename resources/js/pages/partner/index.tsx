@@ -1,5 +1,4 @@
 import { ContractSummary } from '@/components/partner/ContractSummary';
-import { BillingSummary } from '@/components/partner/BillingSummary';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

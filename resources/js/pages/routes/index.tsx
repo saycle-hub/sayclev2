@@ -63,7 +63,7 @@ function fmtKg(kg: number) {
     return `${kg.toLocaleString('id-ID', { maximumFractionDigits: 1 })} kg`;
 }
 
-export default function RoutesIndex({ depot, routes, unassigned, noCoordsCount, officers, allVehicles }: Props) {
+export default function RoutesIndex({ depot, routes, unassigned, noCoordsCount }: Props) {
     const optimizeForm = useForm({});
 
     const runOptimize = () => {

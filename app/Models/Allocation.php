@@ -15,10 +15,14 @@ class Allocation extends Model
         'partner_id',
         'contract_id',
         'grade',
+        'source_grade',
+        'intended_use',
         'allocated_kg',
         'allocation_type',
         'status',
         'week_start',
+        'period_start',
+        'period_end',
         'notes',
     ];
 
@@ -27,6 +31,8 @@ class Allocation extends Model
         return [
             'allocated_kg' => 'decimal:2',
             'week_start' => 'date',
+            'period_start' => 'date',
+            'period_end' => 'date',
         ];
     }
 

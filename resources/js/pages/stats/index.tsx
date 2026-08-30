@@ -1,6 +1,4 @@
-import { MarginCard } from '@/components/stats/MarginCard';
 import { TrendChart } from '@/components/stats/TrendChart';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
