@@ -9,6 +9,7 @@ use App\Http\Controllers\PartnerPortalController;
 use App\Http\Controllers\PriceController;
 use App\Http\Controllers\RouteController;
 use App\Http\Controllers\SaleController;
+use App\Http\Controllers\StatsController;
 use App\Http\Controllers\StockController;
 use App\Http\Controllers\VehicleController;
 
@@ -64,11 +65,16 @@ Route::middleware(['auth'])->group(function () {
         // Safe stubs for modules shipped in later phases, so admin nav never 404s.
         $stubs = [
             'tasks' => 'Tugas',
-            'stats' => 'Statistik',
         ];
         foreach ($stubs as $path => $module) {
             Route::get($path, fn () => Inertia::render('coming-soon', ['module' => $module]))->name("admin.{$path}");
         }
+
+        // Statistics & impact dashboard (Fase 8).
+        Route::get('stats', [StatsController::class, 'index'])->name('stats.index');
+        Route::get('stats/revenue', [StatsController::class, 'revenue'])->name('stats.revenue');
+        Route::get('stats/impact', [StatsController::class, 'impact'])->name('stats.impact');
+        Route::get('stats/partners', [StatsController::class, 'partners'])->name('stats.partners');
     });
     Route::middleware('role:officer')->prefix('officer')->name('officer.')->group(function () {
         Route::get('dashboard', [App\Http\Controllers\OfficerController::class, 'dashboard'])->name('dashboard');
