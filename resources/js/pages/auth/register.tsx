@@ -108,15 +108,7 @@ export default function Register() {
             </Head>
 
             <main className="flex min-h-screen flex-col bg-[#f9f9f8] font-[Inter] text-[#191c1c] antialiased md:flex-row">
-                <aside
-                    className="relative hidden w-1/3 min-w-[320px] max-w-[480px] overflow-hidden bg-[#1d3a20] text-white md:flex md:flex-col md:justify-between"
-                    style={{
-                        backgroundImage:
-                            "url('https://lh3.googleusercontent.com/aida-public/AB6AXuBL1aX_at7qsyKMnHgDBLRmhvwdJ45Y9oWH_NkDNVubpMzitg6WiWyjlULh1OPiqMYdpbrN9ZCfpUlFiRUeUJa8BOJYuc-ArA6SBduA-0r__GkTgBQyflh2nvOmnuoA6gk3POBEMYaMhghI1E9CaS0BTOgJAHr4bT5xOTyd-RbbG66YzdqPbOhwv2m5VbdOtCRXsHcnZok74L2BuFP4XvWHwfzc3WatxRpr0R5eRfCgYRqq8VYaADTh')",
-                        backgroundSize: 'cover',
-                        backgroundPosition: 'center',
-                    }}
-                >
+                <aside className="relative hidden w-1/3 min-w-[320px] max-w-[480px] overflow-hidden bg-[#1d3a20] text-white md:flex md:flex-col md:justify-between">
                     <div className="absolute inset-0 z-0 bg-[#1d3a20]/80" />
                     <div className="relative z-10 flex h-full flex-col p-12">
                         <div>

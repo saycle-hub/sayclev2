@@ -45,10 +45,6 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                         <div className="absolute right-0 top-0 h-[500px] w-[500px] -translate-y-1/2 translate-x-1/3 rounded-full bg-[#cdebc5]/30 blur-3xl" />
                         <div className="absolute bottom-0 left-0 h-[400px] w-[400px] -translate-x-1/4 translate-y-1/3 rounded-full bg-[#adcfab]/40 blur-3xl" />
                         <div className="relative z-10 w-full max-w-[30rem] text-center">
-                            <div
-                                className="mb-8 aspect-square w-full rounded-[24px] border border-[#e1e3df] bg-cover bg-center shadow-xl shadow-[#1d3a20]/5 [box-shadow:0_8px_24px_rgba(29,58,32,0.06)]"
-                                style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuC7dIkyLWhMPJuRvF6S-orGaHjm7YhMRpOPjNQDH4RZPhGUhLNuGxQQf9L7fIKU5xv1qVqw7M_ECT8w1p4CqVIpqr78fASkXLTBg-wS32l7RVM9unl5alwldGDMJzoaPTO4vhhdCTYCPjRagDYphMoiWYAzCYbPRcc-ZxXo3WAR0FivNev93dJB2Yl9u-t73M0nkJVNim9TAyTc1VLq3Z5JCJ084NXFxSiNRYGeI5-cZfOHPhixaKZn")' }}
-                            />
                             <h1 className="mb-4 font-['Space_Grotesk'] text-[30px] font-semibold leading-[1.2] tracking-[-0.01em] text-[#07240c]">Siklus Pangan Berkelanjutan.</h1>
                             <p className="mx-auto max-w-md font-[Inter] text-[17px] font-normal leading-[1.55] text-[#424841]">Platform logistik pintar untuk mengurangi sisa makanan dan mengoptimalkan distribusi menuju ekonomi sirkular.</p>
                         </div>
