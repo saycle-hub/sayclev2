@@ -6,8 +6,10 @@ use App\Http\Controllers\AllocationController;
 use App\Http\Controllers\ContractController;
 use App\Http\Controllers\PartnerController;
 use App\Http\Controllers\PriceController;
+use App\Http\Controllers\RouteController;
 use App\Http\Controllers\SaleController;
 use App\Http\Controllers\StockController;
+use App\Http\Controllers\VehicleController;
 
 Route::get('/', function () {
     return Inertia::render('welcome');
@@ -48,9 +50,18 @@ Route::middleware(['auth'])->group(function () {
         Route::post('allocation/{allocation}/approve', [AllocationController::class, 'approve'])->name('allocation.approve');
         Route::post('allocation/{allocation}/reject', [AllocationController::class, 'reject'])->name('allocation.reject');
 
+        // Route optimization (Fase 5).
+        Route::get('routes', [RouteController::class, 'index'])->name('routes.index');
+        Route::post('routes/optimize', [RouteController::class, 'optimize'])->name('routes.optimize');
+        Route::get('routes/{vehicle}', [RouteController::class, 'show'])->name('routes.show');
+        Route::post('routes/{vehicle}/assign', [RouteController::class, 'assign'])->name('routes.assign');
+
+        Route::get('vehicles', [VehicleController::class, 'index'])->name('vehicles.index');
+        Route::post('vehicles', [VehicleController::class, 'store'])->name('vehicles.store');
+        Route::put('vehicles/{vehicle}', [VehicleController::class, 'update'])->name('vehicles.update');
+
         // Safe stubs for modules shipped in later phases, so admin nav never 404s.
         $stubs = [
-            'routes' => 'Rute',
             'tasks' => 'Tugas',
             'stats' => 'Statistik',
         ];

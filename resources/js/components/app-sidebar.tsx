@@ -15,6 +15,7 @@ const navByRole: Record<string, { home: NavItem; items: NavItem[] }> = {
             { title: 'Kontrak', url: '/contracts', icon: Handshake },
             { title: 'Alokasi', url: '/allocation', icon: Layers },
             { title: 'Rute', url: '/routes', icon: Route },
+            { title: 'Kendaraan', url: '/vehicles', icon: Truck },
             { title: 'Tugas', url: '/tasks', icon: ClipboardList },
             { title: 'Harga', url: '/prices', icon: Tags },
             { title: 'Statistik', url: '/stats', icon: BarChart3 },
