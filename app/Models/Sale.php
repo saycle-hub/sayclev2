@@ -13,7 +13,19 @@ class Sale extends Model
     }
 
     protected $fillable = [
-        'contact', 'estimate_kg', 'location_consent', 'manual_address', 'latitude', 'longitude',
+        'partner_id',
+        'public_id',
+        'contact_name',
+        'phone',
+        'address',
+        'estimated_kg',
+        'status',
+        'latitude',
+        'longitude',
+        'contact',
+        'estimate_kg',
+        'location_consent',
+        'manual_address',
     ];
 
     protected $casts = [

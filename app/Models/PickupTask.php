@@ -18,6 +18,12 @@ class PickupTask extends Model
         'estimated_kg',
         'distance_m',
         'duration_s',
+        'actual_kg',
+        'grade',
+        'photo_path',
+        'checkin_lat',
+        'checkin_lng',
+        'checked_in_at',
     ];
 
     protected function casts(): array
@@ -26,6 +32,10 @@ class PickupTask extends Model
             'estimated_kg' => 'decimal:2',
             'distance_m' => 'decimal:2',
             'duration_s' => 'integer',
+            'actual_kg' => 'decimal:2',
+            'checkin_lat' => 'decimal:7',
+            'checkin_lng' => 'decimal:7',
+            'checked_in_at' => 'datetime',
         ];
     }
 

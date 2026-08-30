@@ -69,9 +69,12 @@ Route::middleware(['auth'])->group(function () {
             Route::get($path, fn () => Inertia::render('coming-soon', ['module' => $module]))->name("admin.{$path}");
         }
     });
-    Route::get('officer', fn () => Inertia::render('officer/index'))->middleware('role:officer')->name('officer');
+    Route::middleware('role:officer')->prefix('officer')->name('officer.')->group(function () {
+        Route::get('dashboard', [App\Http\Controllers\OfficerController::class, 'dashboard'])->name('dashboard');
+        Route::post('tasks/{task}/checkin', [App\Http\Controllers\OfficerController::class, 'checkin'])->name('tasks.checkin');
+    });
+
     Route::get('partner', fn () => Inertia::render('partner/index'))->middleware('role:partner')->name('partner');
-    Route::middleware('role:officer')->prefix('officer')->group(function () { foreach (['tasks', 'routes', 'weighing'] as $page) Route::get($page, fn () => Inertia::render('officer/index')); });
     Route::middleware('role:partner')->prefix('partner')->group(function () { foreach (['deliveries', 'contract', 'billing'] as $page) Route::get($page, fn () => Inertia::render('partner/index')); });
 });
 
