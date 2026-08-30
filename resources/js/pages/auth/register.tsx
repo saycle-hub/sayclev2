@@ -22,7 +22,9 @@ interface RegisterForm {
     max_capacity_kg: string;
     frequency: string;
     grade_preference: string;
-    [key: string]: string;
+    receiving_days: string[];
+    overcapacity_terms_accepted: boolean;
+    [key: string]: string | string[] | boolean;
 }
 
 type CapacityKey = 'min_capacity_kg' | 'ideal_capacity_kg' | 'max_capacity_kg';
@@ -81,6 +83,8 @@ export default function Register() {
         max_capacity_kg: '',
         frequency: '',
         grade_preference: '',
+        receiving_days: [],
+        overcapacity_terms_accepted: false,
     });
 
     const submit: FormEventHandler = (e) => {

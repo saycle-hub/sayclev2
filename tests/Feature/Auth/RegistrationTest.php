@@ -22,11 +22,12 @@ class RegistrationTest extends TestCase
             'name' => 'Test User',
             'email' => 'test@example.com',
             'password' => 'password',
-            'password_confirmation' => 'password',
+            'password_confirmation' => 'password', 'address' => 'Test address', 'min_capacity_kg' => 10, 'ideal_capacity_kg' => 20, 'max_capacity_kg' => 30,
+            'frequency' => 'mingguan', 'receiving_days' => ['monday'], 'overcapacity_terms_accepted' => true,
         ]);
 
         $this->assertAuthenticated();
-        $response->assertRedirect(route('dashboard', absolute: false));
+        $response->assertRedirect(route('partner.index', absolute: false));
     }
 
     public function test_partner_can_register_with_capacity()
@@ -41,6 +42,7 @@ class RegistrationTest extends TestCase
             'ideal_capacity_kg' => 100,
             'max_capacity_kg' => 200,
             'frequency' => 'mingguan',
+            'receiving_days' => ['monday'], 'overcapacity_terms_accepted' => true,
         ]);
 
         $this->assertAuthenticated();

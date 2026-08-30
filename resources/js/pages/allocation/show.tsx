@@ -1,12 +1,9 @@
 import { AllocationBar } from '@/components/allocation-bar';
 import { GradeBadge } from '@/components/grade-badge';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Head, Link, useForm } from '@inertiajs/react';
-import { useState } from 'react';
+import { Head, Link } from '@inertiajs/react';
 
 const breadcrumbs = (grade: string): BreadcrumbItem[] => [
     { title: 'Dasbor', href: '/dashboard' },
@@ -50,17 +47,6 @@ function formatKg(value: number): string {
 }
 
 export default function AllocationShow({ grade, weekStart, rows }: { grade: string; weekStart: string; rows: AllocationRow[] }) {
-    const [dialog, setDialog] = useState<{ row: AllocationRow; action: 'approve' | 'reject' } | null>(null);
-    const actionForm = useForm({});
-
-    const confirmAction = () => {
-        if (!dialog) return;
-        actionForm.post(route(dialog.action === 'approve' ? 'allocation.approve' : 'allocation.reject', dialog.row.id), {
-            preserveScroll: true,
-            onSuccess: () => setDialog(null),
-        });
-    };
-
     return (
         <AppLayout breadcrumbs={breadcrumbs(grade)}>
             <Head title={`Alokasi ${grade}`} />
@@ -93,22 +79,7 @@ export default function AllocationShow({ grade, weekStart, rows }: { grade: stri
                                             {typeLabels[row.allocation_type] ?? row.allocation_type}
                                         </Badge>
                                         {/* Approval badge only where a human decision occurred: overcapacity rows. */}
-                                        {row.allocation_type === 'overcapacity' && (
-                                            <Badge variant="outline" className={`font-semibold ${statusStyles[row.status] ?? ''}`}>
-                                                {row.status === 'approved' ? 'Disetujui' : row.status === 'pending' ? 'Menunggu' : 'Ditolak'}
-                                            </Badge>
-                                        )}
                                     </div>
-                                    {row.allocation_type === 'overcapacity' && row.status === 'pending' && (
-                                        <div className="flex gap-2">
-                                            <Button size="sm" className="min-h-11 bg-[#2f6848] text-[#f4f3ed] hover:bg-[#18352a] focus-visible:ring-2 focus-visible:ring-[#e88c12] focus-visible:outline-none md:min-h-9" onClick={() => setDialog({ row, action: 'approve' })}>
-                                                Setujui
-                                            </Button>
-                                            <Button size="sm" variant="outline" className="min-h-11 border-[#6b4f2e]/30 text-[#6b4f2e] hover:bg-[#6b4f2e]/5 focus-visible:ring-2 focus-visible:ring-[#e88c12] focus-visible:outline-none md:min-h-9" onClick={() => setDialog({ row, action: 'reject' })}>
-                                                Tolak
-                                            </Button>
-                                        </div>
-                                    )}
                                 </div>
                                 <div className="mt-4">
                                     <AllocationBar allocated={row.allocated_kg} minimum={row.minimum} ideal={row.ideal} maximum={row.maximum} />
@@ -118,32 +89,6 @@ export default function AllocationShow({ grade, weekStart, rows }: { grade: stri
                     </div>
                 )}
 
-                <Dialog open={dialog !== null} onOpenChange={(open) => !open && setDialog(null)}>
-                    <DialogContent className="sm:max-w-md">
-                        <DialogHeader>
-                            <DialogTitle>{dialog?.action === 'approve' ? 'Setujui overcapacity?' : 'Tolak alokasi overcapacity?'}</DialogTitle>
-                            <DialogDescription>
-                                {dialog?.action === 'approve'
-                                    ? `Alokasi ${formatKg(dialog.row.allocated_kg)} ke ${dialog.row.partner} akan disetujui.`
-                                    : `Alokasi ${formatKg(dialog?.row.allocated_kg ?? 0)} ke ${dialog?.row.partner ?? ''} akan ditolak.`}
-                            </DialogDescription>
-                        </DialogHeader>
-                        <DialogFooter className="gap-2">
-                            <Button variant="ghost" onClick={() => setDialog(null)} disabled={actionForm.processing}>
-                                Batal
-                            </Button>
-                            <Button
-                                onClick={confirmAction}
-                                disabled={actionForm.processing}
-                                className={dialog?.action === 'approve'
-                                    ? 'bg-[#2f6848] text-[#f4f3ed] hover:bg-[#18352a] focus-visible:ring-2 focus-visible:ring-[#e88c12] focus-visible:outline-none'
-                                    : 'bg-[#6b4f2e] text-white hover:bg-[#18352a] focus-visible:ring-2 focus-visible:ring-[#e88c12] focus-visible:outline-none'}
-                            >
-                                {dialog?.action === 'approve' ? 'Setujui' : 'Tolak'}
-                            </Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
             </div>
         </AppLayout>
     );

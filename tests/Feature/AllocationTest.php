@@ -149,7 +149,7 @@ class AllocationTest extends TestCase
         $this->assertSame(2, Allocation::where('grade', 'Layak')->count());
     }
 
-    public function test_overcapacity_can_be_approved_and_rejected(): void
+    public function test_overcapacity_approval_endpoints_are_unavailable(): void
     {
         $this->partnerWithContract(['min' => 100, 'ideal' => 200, 'max' => 220]);
         $this->addStock('Layak', 260);
@@ -157,11 +157,8 @@ class AllocationTest extends TestCase
         $this->actingAs($this->admin())->post('/allocation/run');
 
         $over = Allocation::where('allocation_type', 'overcapacity')->first();
-        $this->actingAs($this->admin())->post("/allocation/{$over->id}/approve")->assertSessionHas('success');
-        $this->assertSame('approved', $over->fresh()->status);
-
-        $this->actingAs($this->admin())->post("/allocation/{$over->id}/reject")->assertSessionHas('success');
-        $this->assertSame('rejected', $over->fresh()->status);
+        $this->actingAs($this->admin())->post("/allocation/{$over->id}/approve")->assertNotFound();
+        $this->actingAs($this->admin())->post("/allocation/{$over->id}/reject")->assertNotFound();
     }
 
     public function test_index_and_show_render(): void

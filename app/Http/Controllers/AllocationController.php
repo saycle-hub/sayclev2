@@ -100,21 +100,4 @@ class AllocationController extends Controller
         ]);
     }
 
-    public function approve(Allocation $allocation): RedirectResponse
-    {
-        abort_unless($allocation->allocation_type === 'overcapacity', 403);
-
-        $allocation->update(['status' => 'approved']);
-
-        return back()->with('success', 'Alokasi overcapacity disetujui.');
-    }
-
-    public function reject(Allocation $allocation): RedirectResponse
-    {
-        abort_unless($allocation->allocation_type === 'overcapacity', 403);
-
-        $allocation->update(['status' => 'rejected']);
-
-        return back()->with('success', 'Alokasi overcapacity ditolak.');
-    }
 }

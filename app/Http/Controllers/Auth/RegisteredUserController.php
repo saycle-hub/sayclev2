@@ -35,24 +35,23 @@ class RegisteredUserController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|lowercase|email|max:255|unique:'.User::class,
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
-            'address' => 'nullable|string', 'min_capacity_kg' => 'nullable|numeric|min:0',
-            'ideal_capacity_kg' => 'nullable|numeric|gte:min_capacity_kg', 'max_capacity_kg' => 'nullable|numeric|gte:ideal_capacity_kg',
-            'frequency' => 'nullable|in:harian,mingguan,bulanan', 'grade_preference' => 'nullable|in:Layak,Kurang Layak,Tidak Layak',
+            'address' => 'required|string|max:1000', 'min_capacity_kg' => 'required|numeric|min:0',
+            'ideal_capacity_kg' => 'required|numeric|gte:min_capacity_kg', 'max_capacity_kg' => 'required|numeric|gte:ideal_capacity_kg',
+            'frequency' => 'required|in:harian,mingguan,bulanan', 'receiving_days' => 'required|array|min:1', 'receiving_days.*' => 'in:monday,tuesday,wednesday,thursday,friday,saturday,sunday', 'overcapacity_terms_accepted' => 'accepted',
         ]);
 
-        $partner = $request->filled('address');
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
-            'role' => $partner ? 'partner' : 'admin',
+            'role' => 'partner',
         ]);
-        if ($partner) Partner::create($request->only('name', 'address', 'grade_preference', 'min_capacity_kg', 'ideal_capacity_kg', 'max_capacity_kg', 'frequency') + ['user_id' => $user->id]);
+        Partner::create($request->only('name', 'address', 'grade_preference', 'min_capacity_kg', 'ideal_capacity_kg', 'max_capacity_kg', 'frequency', 'receiving_days') + ['user_id' => $user->id, 'overcapacity_terms_version' => Partner::OVERCAPACITY_TERMS_VERSION, 'overcapacity_terms_accepted_at' => now()]);
 
         event(new Registered($user));
 
         Auth::login($user);
 
-        return to_route($partner ? 'partner.index' : 'dashboard');
+        return to_route('partner.index');
     }
 }

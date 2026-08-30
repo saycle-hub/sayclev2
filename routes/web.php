@@ -49,8 +49,6 @@ Route::middleware(['auth'])->group(function () {
         Route::get('allocation', [AllocationController::class, 'index'])->name('allocation.index');
         Route::post('allocation/run', [AllocationController::class, 'run'])->name('allocation.run');
         Route::get('allocation/{grade}', [AllocationController::class, 'show'])->where('grade', 'Layak|Kurang Layak|Tidak Layak')->name('allocation.show');
-        Route::post('allocation/{allocation}/approve', [AllocationController::class, 'approve'])->name('allocation.approve');
-        Route::post('allocation/{allocation}/reject', [AllocationController::class, 'reject'])->name('allocation.reject');
 
         // Route optimization (Fase 5).
         Route::get('routes', [RouteController::class, 'index'])->name('routes.index');
@@ -82,11 +80,20 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // Partner self-service portal (Fase 7).
-    Route::middleware('role:partner')->prefix('partner')->name('partner.')->group(function () {
+    Route::middleware(['role:partner', 'partner.terms'])->prefix('partner')->name('partner.')->group(function () {
         Route::get('/', [PartnerPortalController::class, 'index'])->name('index');
         Route::get('deliveries', [PartnerPortalController::class, 'deliveries'])->name('deliveries');
         Route::get('contract', [PartnerPortalController::class, 'contract'])->name('contract');
         Route::get('billing', [PartnerPortalController::class, 'billing'])->name('billing');
+    });
+    Route::middleware('role:partner')->prefix('partner')->name('partner.')->group(function () {
+        Route::get('terms', fn () => Inertia::render('partner/accept-terms'))->name('terms');
+        Route::post('terms', function (\Illuminate\Http\Request $request) {
+            $request->validate(['overcapacity_terms_accepted' => 'accepted']);
+            $partner = \App\Models\Partner::where('user_id', $request->user()->id)->firstOrFail();
+            $partner->update(['overcapacity_terms_version' => \App\Models\Partner::OVERCAPACITY_TERMS_VERSION, 'overcapacity_terms_accepted_at' => now()]);
+            return to_route('partner.index');
+        })->name('terms.accept');
     });
 });
 
