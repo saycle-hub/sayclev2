@@ -233,14 +233,14 @@ Untuk setiap grade, dalam periode pengiriman:
 
 ### Tasks
 
-- [ ] Buat delivery dari allocation reserved dan route delivery.
-- [ ] Kurir mencatat serah-terima Mitra: waktu, lokasi/bukti, kuantitas per grade, status.
-- [ ] Delivery selesai membuat stock-out satu kali dari reservation terkait.
-- [ ] Buat invoice/billing line dari delivery selesai.
-- [ ] Pisahkan normal vs overcapacity line dan snapshot unit price/cost/total.
-- [ ] Simpan due date/terms/payment status.
-- [ ] Portal Mitra: pengiriman aktif/riwayat, kontrak, allocation, total perlu dibayar.
-- [ ] Catat pembayaran Mitra sesuai workflow yang diputuskan.
+- [x] Buat delivery dari allocation reserved dan route delivery.
+- [x] Kurir mencatat serah-terima Mitra: waktu, lokasi/bukti, kuantitas per grade, status.
+- [x] Delivery selesai membuat stock-out satu kali dari reservation terkait.
+- [x] Buat invoice/billing line dari delivery selesai.
+- [x] Pisahkan normal vs overcapacity line dan snapshot unit price/cost/total.
+- [x] Simpan due date/terms/payment status.
+- [x] Portal Mitra: pengiriman aktif/riwayat, kontrak, allocation, total perlu dibayar.
+- [x] Catat pembayaran Mitra sesuai workflow yang diputuskan.
 
 ### Exit gate
 

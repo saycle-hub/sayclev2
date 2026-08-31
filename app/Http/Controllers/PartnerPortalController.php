@@ -4,8 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Allocation;
 use App\Models\Contract;
+use App\Models\Delivery;
+use App\Models\FinancialLine;
 use App\Models\Partner;
-use App\Models\PickupTask;
 use App\Models\Price;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -16,6 +17,9 @@ use Inertia\Response;
  * Partner self-service portal (Fase 7). Separate from PartnerController,
  * which is the admin CRUD. All pages scope data to the authenticated
  * user's partner record via partner() or firstOrFail().
+ *
+ * C5 fix: billing and deliveries read canonical delivery/invoice records,
+ * never supplier pickups.
  */
 class PartnerPortalController extends Controller
 {
@@ -37,6 +41,7 @@ class PartnerPortalController extends Controller
             'partner' => $partner ? $this->partnerSummary($partner) : null,
             'stats' => $stats,
             'contract' => $activeContract ? $this->contractRow($activeContract) : null,
+            'allocations' => $partner ? $this->allocationRows($partner) : [],
         ]);
     }
 
@@ -46,13 +51,13 @@ class PartnerPortalController extends Controller
 
         $deliveries = collect();
         if ($partner) {
-            $deliveries = PickupTask::query()
-                ->whereHas('sale', fn ($q) => $q->where('partner_id', $partner->id))
-                ->with(['sale:id,partner_id,contact_name,address', 'vehicle:id,name'])
-                ->orderByDesc('created_at')
+            $deliveries = Delivery::query()
+                ->where('partner_id', $partner->id)
+                ->with(['lines', 'trips.vehicle:id,name', 'trips.officer:id,name'])
+                ->orderByDesc('service_date')
                 ->limit(100)
                 ->get()
-                ->map(fn (PickupTask $t) => $this->deliveryRow($t));
+                ->map(fn (Delivery $d) => $this->canonicalDeliveryRow($d));
         }
 
         return Inertia::render('partner/deliveries', ['deliveries' => $deliveries]);
@@ -82,36 +87,36 @@ class PartnerPortalController extends Controller
         $breakdown = collect(Price::GRADES)->map(fn (string $grade) => [
             'grade' => $grade,
             'kg' => 0.0,
-            'buy_price' => 0.0,
+            'unit_price' => 0.0,
             'total' => 0.0,
-            'pickups' => 0,
+            'deliveries' => 0,
         ])->values();
 
         if ($partner) {
-            $rows = PickupTask::query()
-                ->whereHas('sale', fn ($q) => $q->where('partner_id', $partner->id))
-                ->where('status', 'done')
-                ->whereNotNull('actual_kg')
-                ->whereNotNull('grade')
-                ->get(['grade', 'actual_kg']);
+            // Invoices are created at delivery completion with snapshot prices
+            // (normal contract price vs overcapacity cost price). C5: never
+            // derived from supplier pickups.
+            $invoices = FinancialLine::query()
+                ->where('type', 'partner_invoice')
+                ->where('direction', 'receivable')
+                ->whereHas('delivery', fn ($q) => $q->where('partner_id', $partner->id))
+                ->with('delivery:id')
+                ->get();
 
-            $prices = Price::query()->get()->keyBy('grade');
+            $byGrade = $invoices->groupBy('grade')->map(fn ($group, string $grade) => [
+                'grade' => $grade,
+                'kg' => round((float) $group->sum('kg'), 2),
+                'unit_price' => (float) $group->avg('unit_price'),
+                'deliveries' => $group->pluck('delivery_id')->unique()->count(),
+                // Subtotal from the immutable snapshot amounts, never
+                // recomputed from current prices.
+                'total' => round((float) $group->sum('amount'), 2),
+            ]);
 
-            $byGrade = $rows->groupBy(fn ($t) => $this->gradeLabel($t->grade))
-                ->map(fn ($group, string $grade) => [
-                    'grade' => $grade,
-                    'kg' => round((float) $group->sum('actual_kg'), 2),
-                    'buy_price' => (float) ($prices[$grade]->buy_price ?? 0),
-                    'pickups' => $group->count(),
-                ]);
-
-            // Keep the canonical grade order, overlay computed sums.
             $breakdown = $breakdown->map(function (array $row) use ($byGrade) {
                 $found = $byGrade->get($row['grade']);
 
-                return $found
-                    ? [...$row, ...$found, 'total' => round($found['kg'] * $found['buy_price'], 2)]
-                    : $row;
+                return $found ? [...$row, ...$found] : $row;
             })->values();
         }
 
@@ -138,18 +143,17 @@ class PartnerPortalController extends Controller
     }
 
     /**
-     * Overview counters: delivery status counts, this week's allocation,
-     * and total unpaid billing derived from completed pickups.
+     * Overview counters: canonical delivery status counts, this week's
+     * allocation, and unpaid invoice total (C5: from financial_lines,
+     * never from supplier pickups).
      *
      * @return array<string, float|int>
      */
     private function stats(Partner $partner): array
     {
-        $taskQuery = PickupTask::query()
-            ->whereHas('sale', fn ($q) => $q->where('partner_id', $partner->id));
-
-        $done = (clone $taskQuery)->where('status', 'done')->count();
-        $pending = (clone $taskQuery)->whereIn('status', ['pending', 'assigned', 'in_progress'])->count();
+        $deliveryQuery = Delivery::query()->where('partner_id', $partner->id);
+        $done = (clone $deliveryQuery)->where('status', 'delivered')->count();
+        $pending = (clone $deliveryQuery)->whereIn('status', ['planned', 'assigned', 'in_transit'])->count();
 
         $weekStart = Carbon::now()->startOfWeek()->toDateString();
         $allocatedKg = (float) Allocation::query()
@@ -158,15 +162,12 @@ class PartnerPortalController extends Controller
             ->where('status', 'approved')
             ->sum('allocated_kg');
 
-        $billable = (clone $taskQuery)
-            ->where('status', 'done')
-            ->whereNotNull('actual_kg')
-            ->whereNotNull('grade')
-            ->get(['grade', 'actual_kg']);
-
-        $prices = Price::query()->get()->keyBy('grade');
-        $billing = $billable->sum(fn (PickupTask $t) => (float) $t->actual_kg
-            * (float) ($prices[$this->gradeLabel($t->grade)]->buy_price ?? 0));
+        $billing = (float) FinancialLine::query()
+            ->where('type', 'partner_invoice')
+            ->where('direction', 'receivable')
+            ->whereIn('status', ['issued', 'due'])
+            ->whereHas('delivery', fn ($q) => $q->where('partner_id', $partner->id))
+            ->sum('amount');
 
         return [
             'pending' => $pending,
@@ -176,20 +177,59 @@ class PartnerPortalController extends Controller
         ];
     }
 
-    private function deliveryRow(PickupTask $t): array
+    /**
+     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
+     */
+    private function allocationRows(Partner $partner): \Illuminate\Support\Collection
+    {
+        return Allocation::query()
+            ->where('partner_id', $partner->id)
+            ->whereDate('week_start', Carbon::now()->startOfWeek()->toDateString())
+            ->orderBy('grade')
+            ->get()
+            ->map(fn (Allocation $a) => [
+                'grade' => $a->grade,
+                'allocated_kg' => (float) $a->allocated_kg,
+                'allocation_type' => $a->allocation_type,
+                'status' => $a->status,
+            ]);
+    }
+
+    private function canonicalDeliveryRow(Delivery $d): array
     {
         return [
-            'id' => $t->id,
-            'status' => $t->status,
-            'status_label' => $this->statusLabel($t->status),
-            'estimated_kg' => $t->estimated_kg !== null ? (float) $t->estimated_kg : null,
-            'actual_kg' => $t->actual_kg !== null ? (float) $t->actual_kg : null,
-            'grade' => $t->grade !== null ? $this->gradeLabel($t->grade) : null,
-            'vehicle_name' => $t->vehicle?->name,
-            'checked_in_at' => $t->checked_in_at?->toISOString(),
-            'created_at' => $t->created_at->toISOString(),
-            'address' => $t->sale?->address,
+            'id' => $d->id,
+            'status' => $d->status,
+            'status_label' => $this->deliveryStatusLabel($d->status),
+            'service_date' => $d->service_date?->toDateString(),
+            'delivered_at' => $d->delivered_at?->toISOString(),
+            'received_by' => $d->received_by,
+            'lines' => $d->lines->map(fn ($line) => [
+                'grade' => $line->grade,
+                'intended_use' => $line->intended_use,
+                'kg' => (float) $line->kg,
+                'unit_price_snapshot' => $line->unit_price_snapshot !== null ? (float) $line->unit_price_snapshot : null,
+                'total_amount_snapshot' => $line->total_amount_snapshot !== null ? (float) $line->total_amount_snapshot : null,
+            ]),
+            'trips' => $d->trips->map(fn ($trip) => [
+                'status' => $trip->status,
+                'vehicle' => $trip->vehicle?->name,
+                'officer' => $trip->officer?->name,
+            ]),
         ];
+    }
+
+    private function deliveryStatusLabel(string $status): string
+    {
+        return match ($status) {
+            'planned' => 'Dijadwalkan',
+            'assigned' => 'Ditugaskan',
+            'in_transit' => 'Berjalan',
+            'delivered' => 'Selesai',
+            'failed' => 'Gagal',
+            'cancelled' => 'Dibatalkan',
+            default => $status,
+        };
     }
 
     private function contractRow(Contract $c): array
@@ -217,31 +257,5 @@ class PartnerPortalController extends Controller
         if ($frequency === 'harian') return 'Setiap hari';
         $labels = ['monday' => 'Senin', 'tuesday' => 'Selasa', 'wednesday' => 'Rabu', 'thursday' => 'Kamis', 'friday' => 'Jumat', 'saturday' => 'Sabtu', 'sunday' => 'Minggu'];
         return 'Setiap '.implode(', ', array_map(fn (string $day) => $labels[$day] ?? $day, $days ?? []));
-    }
-
-    /**
-     * Pickup tasks store grades in lowercase enum form (layak,
-     * kurang_layak, ...); prices and badges use the title-case
-     * canonical labels. Map on read.
-     */
-    private function gradeLabel(?string $grade): string
-    {
-        return match ($grade) {
-            'layak' => 'Layak',
-            'kurang_layak' => 'Kurang Layak',
-            'tidak_layak' => 'Tidak Layak',
-            default => $grade ?? '',
-        };
-    }
-
-    private function statusLabel(string $status): string
-    {
-        return match ($status) {
-            'pending' => 'Menunggu',
-            'assigned' => 'Dijadwalkan',
-            'in_progress' => 'Berjalan',
-            'done' => 'Selesai',
-            default => $status,
-        };
     }
 }

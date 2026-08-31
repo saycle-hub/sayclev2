@@ -13,51 +13,55 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { cn } from '@/lib/utils';
 import { Head } from '@inertiajs/react';
-import { MapPin } from 'lucide-react';
+import { UserCheck } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Beranda', href: '/partner' },
     { title: 'Pengiriman', href: '/partner/deliveries' },
 ];
 
+export interface DeliveryLineRow {
+    grade: string;
+    intended_use: string;
+    kg: number;
+    unit_price_snapshot: number | null;
+    total_amount_snapshot: number | null;
+}
+
 export interface DeliveryRow {
     id: number;
     status: string;
     status_label: string;
-    estimated_kg: number | null;
-    actual_kg: number | null;
-    grade: string | null;
-    vehicle_name: string | null;
-    checked_in_at: string | null;
-    created_at: string;
-    address: string | null;
+    service_date: string | null;
+    delivered_at: string | null;
+    received_by: string | null;
+    lines: DeliveryLineRow[];
+    trips: { status: string; vehicle: string | null; officer: string | null }[];
 }
 
 const statusStyles: Record<string, string> = {
-    pending: 'border-transparent bg-[#e88c12]/15 text-[#18352a]',
+    planned: 'border-transparent bg-[#e88c12]/15 text-[#18352a]',
     assigned: 'border-transparent bg-[#2f6848]/10 text-[#2f6848]',
-    in_progress: 'border-transparent bg-[#2f6848]/10 text-[#2f6848]',
-    done: 'border-transparent bg-[#2f6848] text-[#f4f3ed]',
+    in_transit: 'border-transparent bg-[#2f6848]/10 text-[#2f6848]',
+    delivered: 'border-transparent bg-[#2f6848] text-[#f4f3ed]',
+    failed: 'border-transparent bg-red-100 text-red-700',
+    cancelled: 'border-transparent bg-[#18352a]/10 text-[#18352a]',
 };
 
-function formatKg(value: number | null): string {
+function formatKg(value: number): string {
+    return value.toLocaleString('id-ID', { maximumFractionDigits: 1 });
+}
+
+function formatRupiah(value: number | null): string {
     return value === null
         ? '-'
-        : value.toLocaleString('id-ID', { maximumFractionDigits: 1 });
+        : new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(value);
 }
 
-function formatDate(iso: string): string {
-    return new Date(iso).toLocaleDateString('id-ID', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-    });
-}
-
-function formatTime(iso: string | null): string {
+function formatDate(iso: string | null): string {
     return iso === null
         ? '-'
-        : new Date(iso).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        : new Date(iso).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 interface Props {
@@ -65,98 +69,87 @@ interface Props {
 }
 
 export default function PartnerDeliveries({ deliveries }: Props) {
+    const totalKg = (rows: DeliveryLineRow[]) => rows.reduce((sum, l) => sum + l.kg, 0);
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Riwayat Pengiriman" />
+            <Head title="Pengiriman" />
             <div className="flex h-full flex-1 flex-col gap-6 bg-[#f4f3ed] p-4 md:p-6">
                 <div>
                     <h1 className="text-2xl font-semibold tracking-tight text-[#18352a]">Pengiriman</h1>
                     <p className="mt-1 text-sm text-[#18352a]/70">
-                        Riwayat penjadwalan dan penimbangan setoran Anda.
+                        Pengiriman aktif dan riwayat serah-terima barang ke lokasi Anda.
                     </p>
                 </div>
 
                 {deliveries.length === 0 ? (
                     <Card className="rounded-2xl border-dashed border-[#2f6848]/30 bg-transparent shadow-none">
                         <CardContent className="p-8 text-center text-sm text-[#18352a]/70">
-                            Belum ada pengiriman. Setoran Anda akan muncul di sini setelah dijadwalkan oleh admin.
+                            Belum ada pengiriman. Jadwal pengiriman muncul setelah alokasi disiapkan admin.
                         </CardContent>
                     </Card>
                 ) : (
-                    <>
-                        {/* Mobile: compact cards. */}
-                        <div className="md:hidden">
-                            <ul className="space-y-3">
-                                {deliveries.map((d) => (
-                                    <li key={d.id} className="rounded-xl border border-[#2f6848]/15 bg-white p-4">
-                                        <div className="flex flex-wrap items-center justify-between gap-2">
-                                            <Badge variant="outline" className={cn('font-semibold', statusStyles[d.status] ?? 'bg-muted text-foreground')}>
-                                                {d.status_label}
-                                            </Badge>
-                                            <span className="text-xs text-[#18352a]/70">{formatDate(d.created_at)}</span>
-                                        </div>
-                                        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-[#18352a]/70">
-                                            <span>
-                                                Est <span className="font-semibold text-[#18352a] tabular-nums">{formatKg(d.estimated_kg)}</span> kg
-                                                {d.actual_kg !== null && (
-                                                    <>
-                                                        {' '}· Timbang <span className="font-semibold text-[#18352a] tabular-nums">{formatKg(d.actual_kg)}</span> kg
-                                                    </>
-                                                )}
-                                            </span>
-                                            {d.grade && <GradeBadge grade={d.grade} />}
-                                        </div>
-                                        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[#18352a]/70">
-                                            {d.vehicle_name && <span>Kendaraan: {d.vehicle_name}</span>}
-                                            <span>Check-in: {formatTime(d.checked_in_at)}</span>
-                                        </div>
-                                        {d.address && (
-                                            <p className="mt-1 flex items-center gap-1 text-xs text-[#18352a]/70">
-                                                <MapPin className="h-3 w-3 shrink-0" aria-hidden="true" />
-                                                <span className="truncate">{d.address}</span>
-                                            </p>
-                                        )}
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
+                    <div className="space-y-3">
+                        {deliveries.map((d) => (
+                            <Card key={d.id} className="rounded-2xl border-[#2f6848]/15 bg-white p-4 shadow-none">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2">
+                                        <Badge variant="outline" className={cn('font-semibold', statusStyles[d.status] ?? 'bg-muted text-foreground')}>
+                                            {d.status_label}
+                                        </Badge>
+                                        <span className="text-sm font-medium text-[#18352a]">#{d.id}</span>
+                                    </div>
+                                    <span className="text-xs text-[#18352a]/70">Jadwal: {formatDate(d.service_date)}</span>
+                                </div>
 
-                        {/* Desktop/tablet: full table. */}
-                        <div className="hidden overflow-hidden rounded-2xl border border-[#2f6848]/15 bg-white md:block">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow className="bg-[#f4f3ed] hover:bg-[#f4f3ed]">
-                                        <TableHead>Tanggal</TableHead>
-                                        <TableHead>Status</TableHead>
-                                        <TableHead>Estimasi</TableHead>
-                                        <TableHead>Hasil timbang</TableHead>
-                                        <TableHead>Grade</TableHead>
-                                        <TableHead>Kendaraan</TableHead>
-                                        <TableHead>Check-in</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {deliveries.map((d) => (
-                                        <TableRow key={d.id}>
-                                            <TableCell className="whitespace-nowrap text-[#18352a]">{formatDate(d.created_at)}</TableCell>
-                                            <TableCell>
-                                                <Badge variant="outline" className={cn('font-semibold', statusStyles[d.status] ?? 'bg-muted text-foreground')}>
-                                                    {d.status_label}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell className="tabular-nums text-[#18352a]/70">{formatKg(d.estimated_kg)} kg</TableCell>
-                                            <TableCell className="font-semibold tabular-nums text-[#18352a]">
-                                                {d.actual_kg !== null ? `${formatKg(d.actual_kg)} kg` : '-'}
-                                            </TableCell>
-                                            <TableCell>{d.grade ? <GradeBadge grade={d.grade} /> : '-'}</TableCell>
-                                            <TableCell className="text-[#18352a]/70">{d.vehicle_name ?? '-'}</TableCell>
-                                            <TableCell className="whitespace-nowrap text-[#18352a]/70">{formatTime(d.checked_in_at)}</TableCell>
-                                        </TableRow>
+                                <div className="mt-3 overflow-x-auto">
+                                    <table className="min-w-full text-sm">
+                                        <thead>
+                                            <tr className="border-b border-[#18352a]/10 text-left text-xs uppercase tracking-wider text-[#18352a]/50">
+                                                <th className="py-2 pr-4">Grade</th>
+                                                <th className="py-2 pr-4">Kg</th>
+                                                <th className="py-2 pr-4">Harga/kg</th>
+                                                <th className="py-2 pr-4 text-right">Jumlah</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {d.lines.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={4} className="py-2 text-xs text-[#18352a]/60">Menunggu penugasan barang.</td>
+                                                </tr>
+                                            ) : (
+                                                d.lines.map((line, i) => (
+                                                    <tr key={`${d.id}-${line.grade}-${i}`} className="border-b border-[#18352a]/5 last:border-0">
+                                                        <td className="py-2 pr-4"><GradeBadge grade={line.grade} /></td>
+                                                        <td className="py-2 pr-4 tabular-nums text-[#18352a]/70">{formatKg(line.kg)} kg</td>
+                                                        <td className="py-2 pr-4 tabular-nums text-[#18352a]/70">{formatRupiah(line.unit_price_snapshot)}</td>
+                                                        <td className="py-2 pr-4 text-right font-semibold tabular-nums text-[#18352a]">{formatRupiah(line.total_amount_snapshot)}</td>
+                                                    </tr>
+                                                ))
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[#18352a]/70">
+                                    {d.trips.map((t, i) => (
+                                        <span key={i}>
+                                            {t.vehicle ?? 'Kendaraan belum ada'}
+                                            {t.officer ? ` · Petugas ${t.officer}` : ''}
+                                            {` · ${t.status.replace('_', ' ')}`}
+                                        </span>
                                     ))}
-                                </TableBody>
-                            </Table>
-                        </div>
-                    </>
+                                    {d.delivered_at && (
+                                        <span className="flex items-center gap-1 font-medium text-[#2f6848]">
+                                            <UserCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                                            Diterima {d.received_by ? `oleh ${d.received_by}` : ''} · {formatDate(d.delivered_at)}
+                                        </span>
+                                    )}
+                                    <span className="ml-auto font-semibold text-[#18352a]">Total {formatKg(totalKg(d.lines))} kg</span>
+                                </div>
+                            </Card>
+                        ))}
+                    </div>
                 )}
             </div>
         </AppLayout>

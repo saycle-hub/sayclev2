@@ -46,7 +46,7 @@ interface RouteItem {
     longitude: number | null;
 }
 
-function RouteSection({ title, items, empty, onCheckin }: { title: string; items: RouteItem[]; empty: string; onCheckin?: (item: RouteItem) => void }) {
+function RouteSection({ title, items, empty, onCheckin, checkinLabel = 'Check-in pickup' }: { title: string; items: RouteItem[]; empty: string; onCheckin?: (item: RouteItem) => void; checkinLabel?: string }) {
     return (
         <section className="mb-7" aria-labelledby={`${title.toLowerCase()}-heading`}>
             <div className="mb-3 flex items-baseline justify-between">
@@ -82,9 +82,9 @@ function RouteSection({ title, items, empty, onCheckin }: { title: string; items
                                             <span><strong className="block text-[#18352a]">Kendaraan</strong>{item.vehicle?.name ?? 'Belum ada'}</span>
                                             <span><strong className="block text-[#18352a]">Rencana</strong>{item.planned_kg.toLocaleString('id-ID')} kg</span>
                                         </div>
-                                        {onCheckin && ['assigned', 'in_progress'].includes(item.status) && (
+                                        {onCheckin && ['assigned', 'in_progress', 'planned'].includes(item.status) && (
                                             <Button onClick={() => onCheckin(item)} className="mt-4 min-h-11 bg-[#e88c12] text-[#f4f3ed] hover:bg-[#d17a0a]">
-                                                <Camera className="h-4 w-4" /> Check-in pickup
+                                                <Camera className="h-4 w-4" /> {checkinLabel}
                                             </Button>
                                         )}
                                     </div>
@@ -102,6 +102,9 @@ export default function OfficerDashboard({ legacyTasks = [], pickups, deliveries
     // Canonical pickup check-in is distinct from legacy pickup tasks.
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
     const [selectedPickup, setSelectedPickup] = useState<RouteItem | null>(null);
+    const [selectedDelivery, setSelectedDelivery] = useState<RouteItem | null>(null);
+    const deliveryForm = useForm({ photo: null as File | null, received_by: '' });
+    const [deliveryError, setDeliveryError] = useState('');
     const pickupForm = useForm({ photo: null as File | null, rejection_photo: null as File | null, actual_total_kg: '0', supplier_rejected: false, checkin_lat: '', checkin_lng: '', layak_kg: '', kurang_layak_kg: '', tidak_layak_kg: '', refusal_reason: '' });
     const [pickupError, setPickupError] = useState('');
     const [gpsError, setGpsError] = useState<string | null>(null);
@@ -197,6 +200,17 @@ export default function OfficerDashboard({ legacyTasks = [], pickups, deliveries
         });
     };
 
+    const submitDeliveryCompletion = () => {
+        if (!selectedDelivery) return;
+        if (!deliveryForm.data.photo) return setDeliveryError('Foto serah-terima wajib diunggah.');
+        if (!deliveryForm.data.received_by.trim()) return setDeliveryError('Nama penerima wajib diisi.');
+        deliveryForm.clearErrors();
+        deliveryForm.post(route('officer.deliveries.complete', selectedDelivery.id), {
+            forceFormData: true,
+            onSuccess: () => { setSelectedDelivery(null); deliveryForm.reset(); setDeliveryError(''); },
+        });
+    };
+
     const pending = legacyTasks.filter((t) => t.status === 'assigned' || t.status === 'in_progress');
     const done = legacyTasks.filter((t) => t.status === 'done');
 
@@ -221,7 +235,7 @@ export default function OfficerDashboard({ legacyTasks = [], pickups, deliveries
                     )}
 
                     <RouteSection title="Pickup" items={pickups} empty="Tidak ada pickup terjadwal." onCheckin={(item) => { setSelectedPickup(item); setPickupError(''); }} />
-                    <RouteSection title="Delivery" items={deliveries} empty="Tidak ada delivery terjadwal." />
+                    <RouteSection title="Delivery" items={deliveries} empty="Tidak ada delivery terjadwal." onCheckin={(item) => { setSelectedDelivery(item); setDeliveryError(''); }} checkinLabel="Serah-terima" />
 
                     {/* Legacy pickup check-in controls. Canonical route cards stay read-only. */}
                     {pending.length > 0 && (
@@ -307,6 +321,45 @@ export default function OfficerDashboard({ legacyTasks = [], pickups, deliveries
                                 <div><Label htmlFor="rejection-photo">Foto kondisi jika total 0 kg</Label><Input id="rejection-photo" type="file" accept="image/jpeg,image/jpg,image/png" className="mt-1 min-h-11" onChange={(e) => pickupForm.setData('rejection_photo', e.target.files?.[0] ?? null)} />{pickupForm.errors.rejection_photo && <p className="mt-1 text-sm text-red-600">{pickupForm.errors.rejection_photo}</p>}</div>
                                 {pickupError && <p role="alert" className="text-sm text-red-600">{pickupError}</p>}
                                 <div className="flex justify-end gap-2"><Button type="button" variant="ghost" onClick={() => setSelectedPickup(null)} disabled={pickupForm.processing}>Batal</Button><Button type="button" onClick={submitPickupCheckin} disabled={pickupForm.processing} className="bg-[#2f6848] text-white">{pickupForm.processing ? 'Menyimpan…' : 'Simpan check-in'}</Button></div>
+                            </div>
+                        </Card>
+                    </div>
+                )}
+
+                {/* Delivery handover modal */}
+                {selectedDelivery && (
+                    <div className="fixed inset-0 z-50 flex items-end bg-[#18352a]/50 sm:items-center sm:justify-center">
+                        <Card className="w-full max-w-lg rounded-t-2xl p-6 sm:rounded-2xl">
+                            <h2 className="mb-4 text-lg font-semibold text-[#18352a]">
+                                Serah-terima: {selectedDelivery.destination?.name ?? 'Mitra'}
+                            </h2>
+                            <div className="space-y-4">
+                                <div>
+                                    <Label htmlFor="received_by">Nama penerima *</Label>
+                                    <Input
+                                        id="received_by"
+                                        value={deliveryForm.data.received_by}
+                                        onChange={(e) => deliveryForm.setData('received_by', e.target.value)}
+                                        className="min-h-11"
+                                        placeholder="Nama orang yang menerima barang"
+                                    />
+                                </div>
+                                <div>
+                                    <Label htmlFor="delivery-photo">Foto serah-terima *</Label>
+                                    <Input
+                                        id="delivery-photo"
+                                        type="file"
+                                        accept="image/jpeg,image/jpg,image/png"
+                                        onChange={(e) => deliveryForm.setData('photo', e.target.files?.[0] ?? null)}
+                                        className="min-h-11"
+                                    />
+                                </div>
+                                {deliveryError && <p role="alert" className="text-sm text-red-600">{deliveryError}</p>}
+                                {deliveryForm.errors.photo && <p className="text-sm text-red-600">{deliveryForm.errors.photo}</p>}
+                                <div className="flex justify-end gap-2">
+                                    <Button type="button" variant="ghost" onClick={() => { setSelectedDelivery(null); setDeliveryError(''); }} disabled={deliveryForm.processing}>Batal</Button>
+                                    <Button type="button" onClick={submitDeliveryCompletion} disabled={deliveryForm.processing} className="bg-[#2f6848] text-white">{deliveryForm.processing ? 'Menyimpan…' : 'Konfirmasi serah-terima'}</Button>
+                                </div>
                             </div>
                         </Card>
                     </div>

@@ -74,6 +74,9 @@ Route::middleware(['auth'])->group(function () {
         Route::post('vehicles', [VehicleController::class, 'store'])->name('vehicles.store');
         Route::put('vehicles/{vehicle}', [VehicleController::class, 'update'])->name('vehicles.update');
 
+        // Partner invoice payment recording (Fase 7, D7: manual recording).
+        Route::post('partner-invoices/{invoice}/pay', [App\Http\Controllers\Admin\PartnerInvoiceController::class, 'pay'])->name('partner-invoices.pay');
+
         // Safe stubs for modules shipped in later phases, so admin nav never 404s.
         $stubs = [
             'tasks' => 'Tugas',
@@ -93,6 +96,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('workload', [App\Http\Controllers\OfficerController::class, 'dashboard'])->name('workload');
         Route::post('tasks/{task}/checkin', [App\Http\Controllers\OfficerController::class, 'checkin'])->name('tasks.checkin');
         Route::post('pickups/{pickup}/checkin', [App\Http\Controllers\OfficerController::class, 'checkinPickup'])->name('pickups.checkin');
+        Route::post('deliveries/{trip}/complete', [App\Http\Controllers\OfficerController::class, 'completeDelivery'])->name('deliveries.complete');
     });
 
     // Partner self-service portal (Fase 7).

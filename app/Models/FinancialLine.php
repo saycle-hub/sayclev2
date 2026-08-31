@@ -19,4 +19,7 @@ class FinancialLine extends Model
     {
         return ['kg' => 'decimal:2', 'unit_price' => 'decimal:2', 'amount' => 'decimal:2', 'due_at' => 'datetime', 'paid_at' => 'datetime'];
     }
+
+    public function delivery() { return $this->belongsTo(Delivery::class); }
+    public function pickup() { return $this->belongsTo(Pickup::class); }
 }

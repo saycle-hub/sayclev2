@@ -21,9 +21,9 @@ const breadcrumbs: BreadcrumbItem[] = [
 export interface BillingRow {
     grade: string;
     kg: number;
-    buy_price: number;
+    unit_price: number;
     total: number;
-    pickups: number;
+    deliveries: number;
 }
 
 interface Props {
@@ -48,7 +48,7 @@ export default function PartnerBilling({ breakdown, grandTotal, totalKg }: Props
                 <div>
                     <h1 className="text-2xl font-semibold tracking-tight text-[#18352a]">Tagihan</h1>
                     <p className="mt-1 text-sm text-[#18352a]/70">
-                        Rincian pembayaran berdasarkan hasil penimbangan setoran Anda.
+                        Rincian tagihan dari pengiriman yang telah diterima, dengan harga terkunci saat serah-terima.
                     </p>
                 </div>
 
@@ -56,10 +56,10 @@ export default function PartnerBilling({ breakdown, grandTotal, totalKg }: Props
 
                 <div>
                     <h2 className="mb-3 text-base font-semibold text-[#18352a]">Rincian per grade</h2>
-                    {breakdown.every((b) => b.pickups === 0) ? (
+                    {breakdown.every((b) => b.deliveries === 0) ? (
                         <Card className="rounded-2xl border-dashed border-[#2f6848]/30 bg-transparent shadow-none">
                             <CardContent className="p-8 text-center text-sm text-[#18352a]/70">
-                                Belum ada setoran yang ditimbang. Tagihan muncul setelah petugas melakukan check-in dan penimbangan.
+                                Belum ada pengiriman yang diselesaikan. Tagihan muncul setelah petugas mencatat serah-terima.
                             </CardContent>
                         </Card>
                     ) : (
@@ -70,8 +70,8 @@ export default function PartnerBilling({ breakdown, grandTotal, totalKg }: Props
                                         <TableRow className="bg-[#f4f3ed] hover:bg-[#f4f3ed]">
                                             <TableHead>Grade</TableHead>
                                             <TableHead>Bobot</TableHead>
-                                            <TableHead>Harga beli</TableHead>
-                                            <TableHead>Jumlah setoran</TableHead>
+                                            <TableHead>Harga/kg</TableHead>
+                                            <TableHead>Pengiriman</TableHead>
                                             <TableHead className="text-right">Subtotal</TableHead>
                                         </TableRow>
                                     </TableHeader>
@@ -80,8 +80,8 @@ export default function PartnerBilling({ breakdown, grandTotal, totalKg }: Props
                                             <TableRow key={b.grade}>
                                                 <TableCell>{b.kg > 0 ? <GradeBadge grade={b.grade} /> : <span className="text-[#18352a]/50">{b.grade}</span>}</TableCell>
                                                 <TableCell className="tabular-nums text-[#18352a]/70">{formatKg(b.kg)} kg</TableCell>
-                                                <TableCell className="tabular-nums text-[#18352a]/70">{formatRupiah(b.buy_price)}/kg</TableCell>
-                                                <TableCell className="tabular-nums text-[#18352a]/70">{b.pickups}x</TableCell>
+                                                <TableCell className="tabular-nums text-[#18352a]/70">{formatRupiah(b.unit_price)}/kg</TableCell>
+                                                <TableCell className="tabular-nums text-[#18352a]/70">{b.deliveries}x</TableCell>
                                                 <TableCell className="text-right font-semibold tabular-nums text-[#18352a]">
                                                     {formatRupiah(b.total)}
                                                 </TableCell>

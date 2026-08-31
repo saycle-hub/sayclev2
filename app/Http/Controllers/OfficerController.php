@@ -122,6 +122,16 @@ class OfficerController extends Controller
         return back();
     }
 
+    public function completeDelivery(Request $request, DeliveryTrip $trip, \App\Services\DeliveryCompletionService $service): RedirectResponse
+    {
+        $data = $request->validate([
+            'photo' => 'required|image|mimes:jpeg,jpg,png|max:5120',
+            'received_by' => 'required|string|max:255',
+        ]);
+        $service->complete($trip, $data);
+        return back()->with('success', 'Serah-terima berhasil dicatat.');
+    }
+
     private function haversineDistance(float $lat1, float $lng1, float $lat2, float $lng2): float
     {
         $earthRadius = 6371000; // meters

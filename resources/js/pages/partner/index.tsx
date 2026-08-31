@@ -40,9 +40,17 @@ interface Props {
     partner: PartnerSummary | null;
     stats: Stats | null;
     contract: OverviewContract | null;
+    allocations?: AllocationRow[];
 }
 
-export default function PartnerOverview({ partner, stats, contract }: Props) {
+interface AllocationRow {
+    grade: string;
+    allocated_kg: number;
+    allocation_type: string;
+    status: string;
+}
+
+export default function PartnerOverview({ partner, stats, contract, allocations = [] }: Props) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Dasbor Mitra" />
@@ -60,6 +68,29 @@ export default function PartnerOverview({ partner, stats, contract }: Props) {
                     <StatusCard icon={Layers} label="Alokasi minggu ini" value={stats?.allocated_kg ?? 0} unit="kg" />
                     <StatusCard icon={Wallet} label="Tagihan total" value={stats?.billing ?? 0} unit="IDR" isCurrency />
                 </section>
+
+                {allocations.length > 0 && (
+                    <section aria-label="Alokasi minggu ini" className="grid gap-4 lg:grid-cols-2">
+                        <Card className="rounded-2xl border-[#2f6848]/15 bg-white shadow-none">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-base font-semibold">Alokasi minggu ini</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <ul className="divide-y divide-[#18352a]/5 text-sm">
+                                    {allocations.map((a, i) => (
+                                        <li key={i} className="flex items-center justify-between py-2">
+                                            <span className="font-medium text-[#18352a]">{a.grade}</span>
+                                            <span className="text-[#18352a]/70">
+                                                {a.allocated_kg.toLocaleString('id-ID', { maximumFractionDigits: 1 })} kg
+                                                <span className="ml-2 text-xs uppercase tracking-wider text-[#18352a]/50">{a.allocation_type}</span>
+                                            </span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </CardContent>
+                        </Card>
+                    </section>
+                )}
 
                 <section aria-label="Kontrak aktif" className="grid gap-4 lg:grid-cols-2">
                     {contract ? (
