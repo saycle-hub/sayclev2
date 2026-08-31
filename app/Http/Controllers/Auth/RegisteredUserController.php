@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Partner;
+use App\Domain\Grade;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -35,7 +36,7 @@ class RegisteredUserController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|lowercase|email|max:255|unique:'.User::class,
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
-            'address' => 'required|string|max:1000', 'min_capacity_kg' => 'required|numeric|min:0',
+            'address' => 'required|string|max:1000', 'latitude' => ['required','numeric','between:-90,90'], 'longitude' => ['required','numeric','between:-180,180'], 'grade_preference' => ['required','string','in:'.implode(',', Grade::ALL)], 'min_capacity_kg' => 'required|numeric|min:0',
             'ideal_capacity_kg' => 'required|numeric|gte:min_capacity_kg', 'max_capacity_kg' => 'required|numeric|gte:ideal_capacity_kg',
             'frequency' => 'required|in:harian,mingguan,bulanan', 'receiving_days' => 'nullable|array|required_if:frequency,mingguan|required_unless:frequency,harian,bulanan|min:1', 'receiving_days.*' => 'in:monday,tuesday,wednesday,thursday,friday,saturday,sunday', 'monthly_receiving_day' => 'nullable|integer|between:1,28|required_if:frequency,bulanan', 'overcapacity_terms_accepted' => 'accepted',
         ]);
@@ -46,7 +47,7 @@ class RegisteredUserController extends Controller
             'password' => Hash::make($request->password),
             'role' => 'partner',
         ]);
-        Partner::create($request->only('name', 'address', 'grade_preference', 'min_capacity_kg', 'ideal_capacity_kg', 'max_capacity_kg', 'frequency', 'receiving_days', 'monthly_receiving_day') + ['user_id' => $user->id, 'overcapacity_terms_version' => Partner::OVERCAPACITY_TERMS_VERSION, 'overcapacity_terms_accepted_at' => now()]);
+        Partner::create($request->only('name', 'address', 'latitude', 'longitude', 'grade_preference', 'min_capacity_kg', 'ideal_capacity_kg', 'max_capacity_kg', 'frequency', 'receiving_days', 'monthly_receiving_day') + ['user_id' => $user->id, 'overcapacity_terms_version' => Partner::OVERCAPACITY_TERMS_VERSION, 'overcapacity_terms_accepted_at' => now()]);
 
         event(new Registered($user));
 

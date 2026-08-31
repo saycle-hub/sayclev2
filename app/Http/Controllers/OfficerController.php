@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\PickupTask;
+use App\Models\{DeliveryTrip, Pickup, PickupTask};
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -16,30 +16,24 @@ class OfficerController extends Controller
     {
         $officer = auth()->user();
 
-        $tasks = PickupTask::query()
-            ->with(['sale:id,contact_name,phone,address,latitude,longitude', 'vehicle:id,name'])
+        $pickups = Pickup::query()
+            ->with(['supplierReport', 'vehicle:id,name'])
             ->where('officer_id', $officer->id)
             ->whereIn('status', ['assigned', 'in_progress'])
-            ->orderBy('stop_order')
-            ->get()
-            ->map(fn ($t) => [
-                'id' => $t->id,
-                'stop_order' => $t->stop_order,
-                'status' => $t->status,
-                'contact_name' => $t->sale->contact_name,
-                'phone' => $t->sale->phone,
-                'address' => $t->sale->address,
-                'latitude' => $t->sale->latitude,
-                'longitude' => $t->sale->longitude,
-                'estimated_kg' => $t->estimated_kg,
-                'actual_kg' => $t->actual_kg,
-                'grade' => $t->grade,
-                'vehicle_name' => $t->vehicle?->name,
-                'checked_in_at' => $t->checked_in_at,
-            ]);
+            ->orderBy('stop_order')->get()
+            ->map(fn (Pickup $p) => ['id'=>$p->id, 'task_type'=>'pickup', 'stop_order'=>$p->stop_order, 'status'=>$p->status, 'scheduled_for'=>$p->scheduled_for?->toISOString(), 'service_date'=>$p->scheduled_for?->toDateString(), 'latitude'=>$p->supplierReport->latitude !== null ? (float)$p->supplierReport->latitude : null, 'longitude'=>$p->supplierReport->longitude !== null ? (float)$p->supplierReport->longitude : null, 'supplier'=>['id'=>$p->supplierReport->id,'name'=>$p->supplierReport->contact_name,'phone'=>$p->supplierReport->phone,'address'=>$p->supplierReport->manual_address], 'destination'=>null, 'planned_kg'=>(float)$p->estimated_kg, 'vehicle'=>$p->vehicle ? ['id'=>$p->vehicle->id,'name'=>$p->vehicle->name] : null]);
 
+        $deliveries = DeliveryTrip::query()->with(['delivery.partner:id,name,address,latitude,longitude', 'vehicle:id,name'])
+            ->where('officer_id', $officer->id)
+            ->whereHas('delivery', fn ($q) => $q->whereIn('status', ['planned', 'assigned', 'in_transit']))
+            ->orderBy('stop_order')->get()
+            ->map(fn (DeliveryTrip $t) => ['id'=>$t->id, 'task_type'=>'delivery', 'stop_order'=>$t->stop_order, 'status'=>$t->status, 'scheduled_for'=>$t->scheduled_for?->toISOString(), 'service_date'=>$t->delivery->service_date?->toDateString(), 'latitude'=>(float)$t->delivery->partner->latitude, 'longitude'=>(float)$t->delivery->partner->longitude, 'supplier'=>null, 'destination'=>['id'=>$t->delivery->partner->id,'name'=>$t->delivery->partner->name,'address'=>$t->delivery->partner->address], 'planned_kg'=>(float)$t->planned_kg, 'vehicle'=>$t->vehicle ? ['id'=>$t->vehicle->id,'name'=>$t->vehicle->name] : null]);
+
+        $tasks = $pickups->concat($deliveries)->sortBy('stop_order')->values();
         return Inertia::render('officer/dashboard', [
             'tasks' => $tasks,
+            'pickups' => $pickups,
+            'deliveries' => $deliveries,
         ]);
     }
 

@@ -13,6 +13,7 @@ use App\Http\Controllers\StatsController;
 use App\Http\Controllers\StockController;
 use App\Http\Controllers\VehicleController;
 use App\Http\Controllers\DeliveryController;
+use App\Http\Controllers\DeliveryRouteController;
 
 Route::get('/', function () {
     return Inertia::render('welcome');
@@ -55,7 +56,10 @@ Route::middleware(['auth'])->group(function () {
         Route::get('allocation', [AllocationController::class, 'index'])->name('allocation.index');
         Route::post('allocation/run', [AllocationController::class, 'run'])->name('allocation.run');
         Route::post('deliveries/schedule', [DeliveryController::class, 'schedule'])->name('deliveries.schedule');
+        Route::post('deliveries/optimize', [DeliveryController::class, 'optimize'])->name('deliveries.optimize');
         Route::post('deliveries/{delivery}/assign', [DeliveryController::class, 'assign'])->name('deliveries.assign');
+        Route::get('delivery-routes', [DeliveryRouteController::class, 'index'])->name('delivery-routes.index');
+        Route::get('delivery-routes/{vehicle}', [DeliveryRouteController::class, 'show'])->name('delivery-routes.show');
         Route::get('allocation/{grade}', [AllocationController::class, 'show'])->where('grade', 'Layak|Kurang Layak|Tidak Layak')->name('allocation.show');
 
         // Route optimization (Fase 5).
@@ -84,6 +88,7 @@ Route::middleware(['auth'])->group(function () {
     });
     Route::middleware('role:officer')->prefix('officer')->name('officer.')->group(function () {
         Route::get('dashboard', [App\Http\Controllers\OfficerController::class, 'dashboard'])->name('dashboard');
+        Route::get('workload', [App\Http\Controllers\OfficerController::class, 'dashboard'])->name('workload');
         Route::post('tasks/{task}/checkin', [App\Http\Controllers\OfficerController::class, 'checkin'])->name('tasks.checkin');
     });
 

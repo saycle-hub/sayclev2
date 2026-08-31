@@ -25,10 +25,76 @@ interface Task {
 }
 
 interface Props {
-    tasks: Task[];
+    /** Legacy pickup tasks only. Canonical route tasks are supplied separately below. */
+    legacyTasks?: Task[];
+    pickups: RouteItem[];
+    deliveries: RouteItem[];
 }
 
-export default function OfficerDashboard({ tasks }: Props) {
+interface RouteItem {
+    id: number;
+    task_type: 'pickup' | 'delivery';
+    stop_order: number | null;
+    status: string;
+    scheduled_for: string | null;
+    service_date: string | null;
+    supplier: { name: string; phone: string; address: string | null } | null;
+    destination: { name: string; address: string | null } | null;
+    planned_kg: number;
+    vehicle: { name: string } | null;
+    latitude: number | null;
+    longitude: number | null;
+}
+
+function RouteSection({ title, items, empty }: { title: string; items: RouteItem[]; empty: string }) {
+    return (
+        <section className="mb-7" aria-labelledby={`${title.toLowerCase()}-heading`}>
+            <div className="mb-3 flex items-baseline justify-between">
+                <h2 id={`${title.toLowerCase()}-heading`} className="text-lg font-semibold text-[#18352a]">{title}</h2>
+                <span className="text-xs font-medium uppercase tracking-widest text-[#18352a]/50">{items.length} {items.length === 1 ? 'stop' : 'stops'}</span>
+            </div>
+            {items.length === 0 ? (
+                <Card className="p-5 text-sm text-[#18352a]/60">{empty}</Card>
+            ) : (
+                <div className="space-y-3">
+                    {items.map((item) => {
+                        const place = item.task_type === 'pickup' ? item.supplier : item.destination;
+                        const date = item.service_date ?? item.scheduled_for;
+                        return (
+                            <Card key={`${item.task_type}-${item.id}`} className="overflow-hidden border-[#18352a]/10 p-4 shadow-sm">
+                                <div className="flex gap-3">
+                                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#2f6848] text-sm font-semibold text-[#f4f3ed]">
+                                        {item.stop_order ?? '—'}
+                                    </span>
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex flex-wrap items-start justify-between gap-2">
+                                            <div>
+                                                <p className="text-xs font-semibold uppercase tracking-wider text-[#e88c12]">{item.task_type}</p>
+                                                <h3 className="font-medium text-[#18352a]">{place?.name ?? 'Lokasi tidak tersedia'}</h3>
+                                            </div>
+                                            <span className="rounded-full bg-[#2f6848]/10 px-2.5 py-1 text-xs font-medium text-[#2f6848]">{item.status.replace('_', ' ')}</span>
+                                        </div>
+                                        <p className="mt-2 flex items-start gap-1.5 text-sm text-[#18352a]/70">
+                                            <MapPin className="mt-0.5 h-4 w-4 shrink-0" />{place?.address ?? 'Alamat tidak tersedia'}
+                                        </p>
+                                        <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-[#18352a]/65 sm:grid-cols-3">
+                                            <span><strong className="block text-[#18352a]">Tanggal</strong>{date ? new Date(date).toLocaleDateString('id-ID') : '—'}</span>
+                                            <span><strong className="block text-[#18352a]">Kendaraan</strong>{item.vehicle?.name ?? 'Belum ada'}</span>
+                                            <span><strong className="block text-[#18352a]">Rencana</strong>{item.planned_kg.toLocaleString('id-ID')} kg</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </Card>
+                        );
+                    })}
+                </div>
+            )}
+        </section>
+    );
+}
+
+export default function OfficerDashboard({ legacyTasks = [], pickups, deliveries }: Props) {
+    // Canonical pickup/delivery route props are read-only; legacy check-in remains isolated to explicit tasks.
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
     const [gpsError, setGpsError] = useState<string | null>(null);
     const [gpsLoading, setGpsLoading] = useState(false);
@@ -89,8 +155,8 @@ export default function OfficerDashboard({ tasks }: Props) {
         });
     };
 
-    const pending = tasks.filter((t) => t.status === 'assigned' || t.status === 'in_progress');
-    const done = tasks.filter((t) => t.status === 'done');
+    const pending = legacyTasks.filter((t) => t.status === 'assigned' || t.status === 'in_progress');
+    const done = legacyTasks.filter((t) => t.status === 'done');
 
     return (
         <>
@@ -102,17 +168,20 @@ export default function OfficerDashboard({ tasks }: Props) {
                     <div className="mb-6">
                         <h1 className="text-2xl font-semibold tracking-tight text-[#18352a]">Tugas Hari Ini</h1>
                         <p className="mt-1 text-sm text-[#18352a]/70">
-                            {pending.length} tugas menunggu · {done.length} selesai
+                            {pickups.length + deliveries.length} pemberhentian terjadwal
                         </p>
                     </div>
 
-                    {pending.length === 0 && done.length === 0 && (
+                    {pickups.length === 0 && deliveries.length === 0 && pending.length === 0 && done.length === 0 && (
                         <Card className="p-8 text-center">
                             <p className="text-sm text-[#18352a]/70">Tidak ada tugas hari ini.</p>
                         </Card>
                     )}
 
-                    {/* Pending tasks */}
+                    <RouteSection title="Pickup" items={pickups} empty="Tidak ada pickup terjadwal." />
+                    <RouteSection title="Delivery" items={deliveries} empty="Tidak ada delivery terjadwal." />
+
+                    {/* Legacy pickup check-in controls. Canonical route cards stay read-only. */}
                     {pending.length > 0 && (
                         <div className="space-y-3">
                             {pending.map((task) => (

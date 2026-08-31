@@ -22,7 +22,7 @@ class RegistrationTest extends TestCase
             'name' => 'Test User',
             'email' => 'test@example.com',
             'password' => 'password',
-            'password_confirmation' => 'password', 'address' => 'Test address', 'min_capacity_kg' => 10, 'ideal_capacity_kg' => 20, 'max_capacity_kg' => 30,
+            'password_confirmation' => 'password', 'address' => 'Test address', 'latitude' => -6.2000000, 'longitude' => 106.8166667, 'grade_preference' => 'Layak', 'min_capacity_kg' => 10, 'ideal_capacity_kg' => 20, 'max_capacity_kg' => 30,
             'frequency' => 'mingguan', 'receiving_days' => ['monday'], 'overcapacity_terms_accepted' => true,
         ]);
 
@@ -38,6 +38,9 @@ class RegistrationTest extends TestCase
             'password' => 'password',
             'password_confirmation' => 'password',
             'address' => 'Jl. Contoh No. 1',
+            'latitude' => -6.2000000,
+            'longitude' => 106.8166667,
+            'grade_preference' => 'Layak',
             'min_capacity_kg' => 50,
             'ideal_capacity_kg' => 100,
             'max_capacity_kg' => 200,

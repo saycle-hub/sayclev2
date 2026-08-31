@@ -14,7 +14,7 @@ class PhaseOneAuthTest extends TestCase
 
     private function payload(array $extra = []): array
     {
-        return array_merge(['name' => 'Mitra', 'email' => 'mitra@example.com', 'password' => 'password', 'password_confirmation' => 'password', 'address' => 'Address', 'min_capacity_kg' => 1, 'ideal_capacity_kg' => 2, 'max_capacity_kg' => 3, 'frequency' => 'mingguan', 'receiving_days' => ['monday'], 'overcapacity_terms_accepted' => true], $extra);
+        return array_merge(['name' => 'Mitra', 'email' => 'mitra@example.com', 'password' => 'password', 'password_confirmation' => 'password', 'address' => 'Address', 'latitude' => -6.2000000, 'longitude' => 106.8166667, 'grade_preference' => 'Layak', 'min_capacity_kg' => 1, 'ideal_capacity_kg' => 2, 'max_capacity_kg' => 3, 'frequency' => 'mingguan', 'receiving_days' => ['monday'], 'overcapacity_terms_accepted' => true], $extra);
     }
 
     public function test_registration_forces_partner_and_stores_profile_terms(): void

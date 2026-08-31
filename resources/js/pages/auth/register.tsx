@@ -1,5 +1,5 @@
 import { Head, Link, useForm } from '@inertiajs/react';
-import { LoaderCircle } from 'lucide-react';
+import { LoaderCircle, LocateFixed } from 'lucide-react';
 import { FormEventHandler, useState } from 'react';
 
 import { CapacityInput } from '@/components/capacity-input';
@@ -24,6 +24,8 @@ interface RegisterForm {
     grade_preference: string;
     receiving_days: string[];
     monthly_receiving_day: string;
+    latitude: string;
+    longitude: string;
     overcapacity_terms_accepted: boolean;
     [key: string]: string | string[] | boolean;
 }
@@ -73,6 +75,8 @@ export default function Register() {
     const [step, setStep] = useState<1 | 2>(1);
     const [capacityError, setCapacityError] = useState('');
     const [capacityFieldErrors, setCapacityFieldErrors] = useState<CapacityErrors>({});
+    const [locationError, setLocationError] = useState('');
+    const [locationState, setLocationState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
     const { data, setData, post, processing, errors, reset } = useForm<RegisterForm>({
         name: '',
         email: '',
@@ -86,8 +90,20 @@ export default function Register() {
         grade_preference: '',
         receiving_days: [],
         monthly_receiving_day: '',
+        latitude: '',
+        longitude: '',
         overcapacity_terms_accepted: false,
     });
+
+    const captureLocation = () => {
+        if (!navigator.geolocation) { setLocationState('error'); setLocationError('Browser tidak mendukung lokasi. Isi koordinat secara manual.'); return; }
+        setLocationState('loading'); setLocationError('');
+        navigator.geolocation.getCurrentPosition(
+            ({ coords }) => { setData((current) => ({ ...current, latitude: coords.latitude.toFixed(7), longitude: coords.longitude.toFixed(7) })); setLocationState('success'); },
+            () => { setLocationState('error'); setLocationError('Lokasi tidak dapat diambil. Izinkan akses lokasi atau isi koordinat manual.'); },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+        );
+    };
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
@@ -101,6 +117,12 @@ export default function Register() {
         }
         setCapacityError('');
         setCapacityFieldErrors({});
+        const latitude = Number(data.latitude), longitude = Number(data.longitude);
+        if (!data.latitude.trim() || !data.longitude.trim() || !Number.isFinite(latitude) || latitude < -90 || latitude > 90 || !Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
+            setLocationError('Latitude harus -90 sampai 90 dan longitude harus -180 sampai 180.');
+            return;
+        }
+        setLocationError('');
         post(route('register'), {
             onFinish: () => reset('password', 'password_confirmation'),
         });
@@ -320,6 +342,7 @@ export default function Register() {
                                             </Select>
                                         </FieldShell>
 
+                                        <FieldShell label="Pin lokasi (GPS)"><p className="mb-3 text-sm font-normal leading-6">Lokasi membantu verifikasi alamat dan koordinasi penjemputan. Kami hanya menerima koordinat perangkat ini, tanpa mencari alamat otomatis.</p><button type="button" onClick={captureLocation} disabled={locationState === 'loading'} className="mb-3 inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#1d3a20] px-4 text-sm font-semibold text-white disabled:opacity-60"><LocateFixed size={17} />{locationState === 'loading' ? 'Mengambil lokasi…' : 'Gunakan lokasi saya'}</button>{locationState === 'success' && <p className="mb-3 text-sm text-[#1d3a20]">Lokasi berhasil diambil. Anda masih dapat mengubah koordinat.</p>}<div className="grid gap-3 sm:grid-cols-2"><div><Label htmlFor="latitude" className="text-xs normal-case tracking-normal">Latitude (-90 sampai 90)</Label><Input id="latitude" type="number" step="any" min="-90" max="90" required value={data.latitude} onChange={(e) => { setData('latitude', e.target.value); setLocationError(''); }} placeholder="-6.200000" /><InputError message={errors.latitude} /></div><div><Label htmlFor="longitude" className="text-xs normal-case tracking-normal">Longitude (-180 sampai 180)</Label><Input id="longitude" type="number" step="any" min="-180" max="180" required value={data.longitude} onChange={(e) => { setData('longitude', e.target.value); setLocationError(''); }} placeholder="106.816666" /><InputError message={errors.longitude} /></div></div>{locationError && <p role="alert" className="mt-2 text-sm text-red-600">{locationError}</p>}</FieldShell>
                                         <FieldShell label="Preferensi grade">
                                             {data.frequency === 'bulanan' && <><Label htmlFor="monthly_receiving_day">Tanggal penerimaan setiap bulan (1–28)</Label><Input id="monthly_receiving_day" type="number" min="1" max="28" value={data.monthly_receiving_day} onChange={(e) => setData('monthly_receiving_day', e.target.value)} required /><InputError message={errors.monthly_receiving_day} /></>}
                                             <GradeSelect id="grade_preference" ariaLabelledBy="grade-label" value={data.grade_preference} onChange={(value) => setData('grade_preference', value)} />

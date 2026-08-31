@@ -3,8 +3,13 @@
 namespace Tests\Feature;
 
 use App\Models\Partner;
+use App\Models\Delivery;
+use App\Models\DeliveryTrip;
+use App\Models\Contract;
 use App\Models\PickupTask;
+use App\Models\Pickup;
 use App\Models\Sale;
+use App\Models\SupplierReport;
 use App\Models\User;
 use App\Models\Vehicle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -71,16 +76,57 @@ class OfficerTest extends TestCase
     public function test_officer_dashboard_shows_assigned_tasks(): void
     {
         $officer = $this->createOfficer();
-        $task = $this->createTaskForOfficer($officer);
+        $otherOfficer = $this->createOfficer();
+        $partner = Partner::create([
+            'name' => 'Canonical Partner', 'type' => 'pakan', 'contact_person' => 'Jane Doe',
+            'phone' => '081234567890', 'email' => 'canonical@partner.com', 'address' => 'Canonical Address',
+            'min_capacity_kg' => 1, 'ideal_capacity_kg' => 2, 'max_capacity_kg' => 3, 'frequency' => 'harian',
+            'latitude' => -6.99, 'longitude' => 110.42,
+        ]);
+        $report = SupplierReport::create([
+            'public_id' => 'CANONICAL-REPORT', 'contact_name' => 'Canonical Supplier',
+            'phone' => '081234567890', 'estimated_kg' => 12, 'photo_path' => 'test/canonical.jpg',
+            'location_consent' => true, 'latitude' => -6.9932, 'longitude' => 110.4203,
+            'manual_address' => 'Canonical Pickup Address', 'status' => 'pickup_scheduled', 'pin_hash' => 'pin',
+        ]);
+        $vehicle = Vehicle::create(['name' => 'Canonical Vehicle', 'capacity_kg' => 100, 'is_active' => true]);
+        $contract = Contract::create([
+            'partner_id' => $partner->id, 'name' => 'Canonical Contract', 'status' => 'active',
+            'grade' => 'Layak', 'min_capacity_kg' => 1, 'ideal_capacity_kg' => 2, 'max_capacity_kg' => 3,
+            'frequency' => 'harian', 'receiving_days' => [], 'start_date' => '2026-01-01',
+            'buy_price' => 1, 'sell_price' => 2,
+        ]);
+        $pickup = Pickup::create([
+            'supplier_report_id' => $report->id, 'vehicle_id' => $vehicle->id, 'officer_id' => $officer->id,
+            'scheduled_for' => '2026-09-01 08:00:00', 'stop_order' => 1, 'status' => 'assigned', 'estimated_kg' => 12,
+        ]);
+        $delivery = Delivery::create([
+            'partner_id' => $partner->id, 'contract_id' => $contract->id, 'service_date' => '2026-09-01',
+            'status' => 'assigned', 'scheduled_for' => '2026-09-01 10:00:00',
+        ]);
+        $trip = DeliveryTrip::create([
+            'delivery_id' => $delivery->id, 'vehicle_id' => $vehicle->id, 'officer_id' => $officer->id,
+            'scheduled_for' => '2026-09-01 10:00:00', 'stop_order' => 2, 'planned_kg' => 8, 'status' => 'assigned',
+        ]);
 
         $response = $this->actingAs($officer)->get(route('officer.dashboard'));
 
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page
             ->component('officer/dashboard')
-            ->has('tasks', 1)
-            ->where('tasks.0.id', $task->id)
+            ->has('tasks', 2)
+            ->where('tasks.0.id', $pickup->id)
+            ->where('tasks.0.task_type', 'pickup')
+            ->where('tasks.0.planned_kg', 12)
+            ->where('tasks.1.id', $trip->id)
+            ->where('tasks.1.task_type', 'delivery')
+            ->where('tasks.1.planned_kg', 8)
+            ->has('pickups', 1)
+            ->has('deliveries', 1)
         );
+
+        $this->actingAs($otherOfficer)->get(route('officer.dashboard'))
+            ->assertInertia(fn ($page) => $page->has('tasks', 0)->has('pickups', 0)->has('deliveries', 0));
     }
 
     public function test_non_officer_cannot_access_dashboard(): void
