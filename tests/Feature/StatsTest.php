@@ -4,11 +4,15 @@ namespace Tests\Feature;
 
 use App\Models\FinancialLine;
 use App\Models\Partner;
+use App\Models\Pickup;
 use App\Models\Price;
 use App\Models\SupplierReport;
 use App\Models\User;
+use App\Models\Vehicle;
 use App\Models\WarehouseMutation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
@@ -32,7 +36,7 @@ class StatsTest extends TestCase
     {
         // Ledger: 120 kg Layak receipt; snapshot lines exist.
         WarehouseMutation::create(['type' => 'receipt', 'grade' => 'Layak', 'kg' => 120, 'performed_by' => $this->admin->id, 'occurred_at' => now()]);
-        FinancialLine::create(['type' => 'supplier_payment', 'direction' => 'payable', 'grade' => 'Layak', 'kg' => 120, 'unit_price' => 1500, 'amount' => 180000, 'currency' => 'IDR', 'status' => 'issued']);
+        FinancialLine::create(['type' => 'supplier_payment', 'direction' => 'payable', 'grade' => 'Layak', 'kg' => 120, 'unit_price' => 1500, 'amount' => 180000, 'currency' => 'IDR', 'status' => 'paid', 'paid_at' => now()]);
         FinancialLine::create(['type' => 'partner_invoice', 'direction' => 'receivable', 'grade' => 'Layak', 'kg' => 100, 'unit_price' => 2000, 'amount' => 200000, 'currency' => 'IDR', 'status' => 'issued']);
 
         // Current prices differ wildly; realized figures must ignore them.
@@ -132,5 +136,29 @@ class StatsTest extends TestCase
         $this->get('/stats')->assertRedirect('/login');
         $this->actingAs(User::factory()->create(['role' => 'officer']))->get('/stats')->assertForbidden();
         $this->actingAs(User::factory()->create(['role' => 'partner']))->get('/stats')->assertForbidden();
+    }
+
+    public function test_supplier_payments_are_paid_at_checkin_and_kpi_pengeluaran_sums_paid_lines(): void
+    {
+        Storage::fake('s3-private');
+        $officer = User::factory()->create(['role' => 'officer']);
+        $report = SupplierReport::create(['public_id' => uniqid('R'), 'contact_name' => 'Supplier', 'phone' => '1', 'estimated_kg' => 10, 'photo_path' => 'x.jpg', 'location_consent' => true, 'latitude' => 0, 'longitude' => 0, 'manual_address' => 'x', 'status' => 'pickup_scheduled', 'pin_hash' => 'x']);
+        $vehicle = Vehicle::create(['name' => 'V', 'capacity_kg' => 100, 'is_active' => true]);
+        $pickup = Pickup::create(['supplier_report_id' => $report->id, 'vehicle_id' => $vehicle->id, 'officer_id' => $officer->id, 'status' => 'assigned', 'estimated_kg' => 10]);
+        Price::create(['grade' => 'Layak', 'buy_price' => 1500, 'sell_price' => 3000]);
+
+        $this->actingAs($officer)->post("/officer/pickups/{$pickup->id}/checkin", ['actual_total_kg' => 10, 'grades' => [['grade' => 'Layak', 'kg' => 10]], 'photo' => UploadedFile::fake()->image('p.jpg'), 'checkin_lat' => 0, 'checkin_lng' => 0])->assertRedirect();
+
+        $payments = FinancialLine::where('type', 'supplier_payment')->get();
+        $this->assertGreaterThan(0, $payments->count());
+        $payments->each(fn (FinancialLine $line) => $this->assertSame('paid', $line->status));
+        $payments->each(fn (FinancialLine $line) => $this->assertNotNull($line->paid_at));
+
+        $expected = (float) $payments->sum('amount');
+        $this->actingAs($this->admin)->get('/stats')->assertOk()->assertInertia(fn ($page) => $page
+            ->component('stats/index')
+            // Closure: JSON round-trip may deliver whole rupiah as int.
+            ->where('kpi.pengeluaran', fn ($v) => abs((float) $v - $expected) < 0.005)
+        );
     }
 }

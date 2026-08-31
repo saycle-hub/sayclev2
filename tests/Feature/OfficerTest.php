@@ -5,13 +5,13 @@ namespace Tests\Feature;
 use App\Models\Contract;
 use App\Models\Delivery;
 use App\Models\DeliveryTrip;
+use App\Models\FinancialLine;
 use App\Models\Partner;
 use App\Models\Pickup;
-use App\Models\PickupTask;
-use App\Models\Sale;
 use App\Models\SupplierReport;
 use App\Models\User;
 use App\Models\Vehicle;
+use App\Models\WarehouseMutation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -26,51 +26,35 @@ class OfficerTest extends TestCase
         return User::factory()->create(['role' => 'officer']);
     }
 
-    private function createTaskForOfficer(User $officer, array $overrides = []): PickupTask
+    /**
+     * Canonical fixture (mirrors CanonicalPickupCheckinTest::fixture):
+     * SupplierReport with exact coordinates + Pickup assigned to the officer.
+     */
+    private function createAssignedPickupForOfficer(User $officer): Pickup
     {
-        $partner = Partner::create([
-            'name' => 'Test Partner',
-            'type' => 'pakan',
-            'contact_person' => 'John Doe',
-            'phone' => '081234567890',
-            'email' => 'test@partner.com',
-            'address' => 'Test Address',
-            'min_capacity_kg' => 100.0,
-            'ideal_capacity_kg' => 200.0,
-            'max_capacity_kg' => 300.0,
-            'frequency' => 'harian',
+        $report = SupplierReport::create([
+            'public_id' => uniqid('R'), 'contact_name' => 'Supplier', 'phone' => '1',
+            'estimated_kg' => 10, 'photo_path' => 'x.jpg', 'location_consent' => true,
+            'latitude' => 0, 'longitude' => 0, 'manual_address' => 'x',
+            'status' => 'pickup_scheduled', 'pin_hash' => 'x',
         ]);
+        $vehicle = Vehicle::create(['name' => 'V', 'capacity_kg' => 100, 'is_active' => true]);
 
-        $sale = (new Sale)->forceFill([
-            'partner_id' => $partner->id,
-            'public_id' => 'TEST-'.now()->format('YmdHis').'-'.bin2hex(random_bytes(2)),
-            'contact_name' => 'Test Supplier',
-            'phone' => '081234567890',
-            'address' => 'Test Address',
-            'estimated_kg' => 50.0,
-            'status' => 'scheduled',
-            'latitude' => -6.9932,
-            'longitude' => 110.4203,
-            // Legacy intake columns (still NOT NULL, still written by the
-            // public intake flow) must be filled for the insert to pass.
-            'contact' => 'Test Supplier',
-            'estimate_kg' => 50.0,
-            'location_consent' => true,
-            'photo_path' => 'test/sales/fake.jpg',
-            'pin_hash' => 'test-pin',
+        return Pickup::create([
+            'supplier_report_id' => $report->id, 'vehicle_id' => $vehicle->id,
+            'officer_id' => $officer->id, 'status' => 'assigned', 'estimated_kg' => 10,
         ]);
-        $sale->save();
+    }
 
-        $vehicle = Vehicle::create(['name' => 'Test Vehicle', 'capacity_kg' => 500, 'is_active' => true]);
-
-        return PickupTask::create(array_merge([
-            'sale_id' => $sale->id,
-            'vehicle_id' => $vehicle->id,
-            'officer_id' => $officer->id,
-            'stop_order' => 1,
-            'status' => 'assigned',
-            'estimated_kg' => 50.0,
-        ], $overrides));
+    private function canonicalPayload(float $kg = 10): array
+    {
+        return [
+            'actual_total_kg' => $kg,
+            'grades' => [['grade' => 'Layak', 'kg' => $kg]],
+            'photo' => UploadedFile::fake()->image('pickup.jpg'),
+            'checkin_lat' => 0,
+            'checkin_lng' => 0,
+        ];
     }
 
     public function test_officer_dashboard_shows_assigned_tasks(): void
@@ -138,124 +122,48 @@ class OfficerTest extends TestCase
         $response->assertForbidden();
     }
 
-    public function test_checkin_updates_task_with_valid_data(): void
+    public function test_canonical_pickup_checkin_completes_and_writes_ledger_and_payment(): void
     {
         Storage::fake('s3-private');
         $officer = $this->createOfficer();
-        $task = $this->createTaskForOfficer($officer);
+        $pickup = $this->createAssignedPickupForOfficer($officer);
 
-        $photo = UploadedFile::fake()->image('pickup.jpg');
+        $response = $this->actingAs($officer)
+            ->post(route('officer.pickups.checkin', $pickup->id), $this->canonicalPayload(10));
 
-        $response = $this->actingAs($officer)->post(route('officer.tasks.checkin', $task->id), [
-            'actual_kg' => 45.5,
-            'grade' => 'layak',
-            'photo' => $photo,
-            'checkin_lat' => -6.9931, // ~11m from sale
-            'checkin_lng' => 110.4202,
-        ]);
+        $response->assertRedirect();
+        $this->assertSame('completed', $pickup->fresh()->status);
 
-        $response->assertRedirect(route('officer.dashboard'));
-        $response->assertSessionHas('success');
+        // Canonical stock ledger receipt exists for this pickup.
+        $this->assertTrue(
+            WarehouseMutation::query()
+                ->where('type', 'receipt')
+                ->where('reference_type', Pickup::class)
+                ->where('reference_id', $pickup->id)
+                ->exists()
+        );
 
-        $task->refresh();
-        $this->assertEquals(45.5, $task->actual_kg);
-        $this->assertEquals('layak', $task->grade);
-        $this->assertEquals('done', $task->status);
-        $this->assertNotNull($task->photo_path);
-        $this->assertNotNull($task->checked_in_at);
-
-        Storage::disk('s3-private')->assertExists($task->photo_path);
+        // Supplier payment financial line exists for this pickup.
+        $this->assertTrue(
+            FinancialLine::query()
+                ->where('type', 'supplier_payment')
+                ->where('pickup_id', $pickup->id)
+                ->exists()
+        );
     }
 
-    public function test_checkin_rejects_location_too_far(): void
+    public function test_canonical_pickup_checkin_rejects_wrong_officer(): void
     {
         Storage::fake('s3-private');
-        $officer = $this->createOfficer();
-        $task = $this->createTaskForOfficer($officer);
+        $assignedOfficer = $this->createOfficer();
+        $otherOfficer = $this->createOfficer();
+        $pickup = $this->createAssignedPickupForOfficer($assignedOfficer);
 
-        $photo = UploadedFile::fake()->image('pickup.jpg');
+        $response = $this->actingAs($otherOfficer)
+            ->post(route('officer.pickups.checkin', $pickup->id), $this->canonicalPayload(10));
 
-        $response = $this->actingAs($officer)->post(route('officer.tasks.checkin', $task->id), [
-            'actual_kg' => 45.5,
-            'grade' => 'layak',
-            'photo' => $photo,
-            'checkin_lat' => -6.9900, // ~400m away
-            'checkin_lng' => 110.4200,
-        ]);
-
-        $response->assertSessionHasErrors('checkin_lat');
-
-        $task->refresh();
-        $this->assertNull($task->actual_kg);
-        $this->assertEquals('assigned', $task->status);
-    }
-
-    public function test_checkin_validates_required_fields(): void
-    {
-        $officer = $this->createOfficer();
-        $task = $this->createTaskForOfficer($officer);
-
-        $response = $this->actingAs($officer)->post(route('officer.tasks.checkin', $task->id), []);
-
-        $response->assertSessionHasErrors(['actual_kg', 'grade', 'photo', 'checkin_lat', 'checkin_lng']);
-    }
-
-    public function test_checkin_rejects_invalid_grade(): void
-    {
-        Storage::fake('s3-private');
-        $officer = $this->createOfficer();
-        $task = $this->createTaskForOfficer($officer);
-
-        $photo = UploadedFile::fake()->image('pickup.jpg');
-
-        $response = $this->actingAs($officer)->post(route('officer.tasks.checkin', $task->id), [
-            'actual_kg' => 45.5,
-            'grade' => 'invalid_grade',
-            'photo' => $photo,
-            'checkin_lat' => -6.9931,
-            'checkin_lng' => 110.4202,
-        ]);
-
-        $response->assertSessionHasErrors('grade');
-    }
-
-    public function test_officer_cannot_checkin_other_officer_task(): void
-    {
-        Storage::fake('s3-private');
-        $officer1 = $this->createOfficer();
-        $officer2 = $this->createOfficer();
-        $task = $this->createTaskForOfficer($officer1);
-
-        $photo = UploadedFile::fake()->image('pickup.jpg');
-
-        $response = $this->actingAs($officer2)->post(route('officer.tasks.checkin', $task->id), [
-            'actual_kg' => 45.5,
-            'grade' => 'layak',
-            'photo' => $photo,
-            'checkin_lat' => -6.9931,
-            'checkin_lng' => 110.4202,
-        ]);
-
-        $response->assertSessionHasErrors('task');
-    }
-
-    public function test_checkin_rejects_already_done_task(): void
-    {
-        Storage::fake('s3-private');
-        $officer = $this->createOfficer();
-        $task = $this->createTaskForOfficer($officer, ['status' => 'done']);
-
-        $photo = UploadedFile::fake()->image('pickup.jpg');
-
-        $response = $this->actingAs($officer)->post(route('officer.tasks.checkin', $task->id), [
-            'actual_kg' => 45.5,
-            'grade' => 'layak',
-            'photo' => $photo,
-            'checkin_lat' => -6.9931,
-            'checkin_lng' => 110.4202,
-        ]);
-
-        $response->assertSessionHasErrors('task');
+        $response->assertForbidden();
+        $this->assertSame('assigned', $pickup->fresh()->status);
     }
 
     public function test_officer_workload_routes_render_dashboard_and_are_role_gated(): void

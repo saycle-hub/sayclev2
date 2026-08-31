@@ -2,13 +2,17 @@
 
 namespace Tests\Feature;
 
+use App\Models\FinancialLine;
 use App\Models\Pickup;
+use App\Models\Price;
 use App\Models\SupplierReport;
 use App\Models\User;
 use App\Models\Vehicle;
+use App\Models\WarehouseMutation;
+use App\Services\PickupCheckinService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage as StorageFacade;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -23,6 +27,7 @@ class CanonicalPickupCheckinTest extends TestCase
         $report = SupplierReport::create(['public_id' => uniqid('R'), 'contact_name' => 'Supplier', 'phone' => '1', 'estimated_kg' => 10, 'photo_path' => 'x.jpg', 'location_consent' => true, 'latitude' => 0, 'longitude' => 0, 'manual_address' => 'x', 'status' => 'pickup_scheduled', 'pin_hash' => 'x']);
         $vehicle = Vehicle::create(['name' => 'V', 'capacity_kg' => 100, 'is_active' => true]);
         $pickup = Pickup::create(['supplier_report_id' => $report->id, 'vehicle_id' => $vehicle->id, 'officer_id' => $officer->id, 'status' => $status, 'estimated_kg' => 10]);
+
         return [$pickup, $report, $officer];
     }
 
@@ -35,7 +40,8 @@ class CanonicalPickupCheckinTest extends TestCase
     {
         [$pickup, $report, $officer] = $this->fixture();
         $payload = $this->payload(9, ['grades' => [['grade' => 'Layak', 'kg' => 3], ['grade' => 'Kurang Layak', 'kg' => 4], ['grade' => 'Tidak Layak', 'kg' => 2]]]);
-        $two = $payload; $two['photo'] = UploadedFile::fake()->image('same-copy.jpg');
+        $two = $payload;
+        $two['photo'] = UploadedFile::fake()->image('same-copy.jpg');
         $this->withoutExceptionHandling();
         $this->actingAs($officer)->post("/officer/pickups/{$pickup->id}/checkin", $payload)->assertRedirect();
         $this->assertSame('completed', $pickup->fresh()->status);
@@ -85,7 +91,8 @@ class CanonicalPickupCheckinTest extends TestCase
 
     public function test_admin_provenance_is_admin_only_and_traces_evidence(): void
     {
-        [$pickup, , $officer] = $this->fixture(); $admin = User::factory()->create(['role' => 'admin']);
+        [$pickup, , $officer] = $this->fixture();
+        $admin = User::factory()->create(['role' => 'admin']);
         $this->actingAs($officer)->post("/officer/pickups/{$pickup->id}/checkin", $this->payload(4))->assertRedirect();
         $this->actingAs($officer)->get('/provenance')->assertForbidden();
         $this->actingAs($admin)->get('/provenance')
@@ -109,69 +116,76 @@ class CanonicalPickupCheckinTest extends TestCase
     public function test_same_image_bytes_are_idempotent_and_different_bytes_rejected(): void
     {
         [$pickup,, $officer] = $this->fixture();
-        $one = UploadedFile::fake()->createWithContent('a.jpg','same-bytes'); $two = UploadedFile::fake()->createWithContent('b.jpg','different-bytes');
-        $payload = $this->payload(4,['photo'=>$one]);
-        $this->actingAs($officer)->post("/officer/pickups/{$pickup->id}/checkin",$payload)->assertRedirect();
-        $this->actingAs($officer)->post("/officer/pickups/{$pickup->id}/checkin",$payload)->assertRedirect();
-        $this->assertDatabaseCount('classification_lots',1);
-        $changed=$this->payload(4,['photo'=>$two]);
-        $this->actingAs($officer)->post("/officer/pickups/{$pickup->id}/checkin",$changed)->assertStatus(422);
-        $this->assertDatabaseCount('classification_lots',1);
+        $one = UploadedFile::fake()->createWithContent('a.jpg', 'same-bytes');
+        $two = UploadedFile::fake()->createWithContent('b.jpg', 'different-bytes');
+        $payload = $this->payload(4, ['photo' => $one]);
+        $this->actingAs($officer)->post("/officer/pickups/{$pickup->id}/checkin", $payload)->assertRedirect();
+        $this->actingAs($officer)->post("/officer/pickups/{$pickup->id}/checkin", $payload)->assertRedirect();
+        $this->assertDatabaseCount('classification_lots', 1);
+        $changed = $this->payload(4, ['photo' => $two]);
+        $this->actingAs($officer)->post("/officer/pickups/{$pickup->id}/checkin", $changed)->assertStatus(422);
+        $this->assertDatabaseCount('classification_lots', 1);
     }
 
     public function test_photo_types_are_limited_and_oversize_rejected(): void
     {
         [$pickup,, $officer] = $this->fixture();
-        $bad = $this->payload(4,['photo'=>UploadedFile::fake()->create('bad.txt',1,'text/plain')]);
-        $this->actingAs($officer)->post("/officer/pickups/{$pickup->id}/checkin",$bad)->assertSessionHasErrors('photo');
-        $large = $this->payload(4,['photo'=>UploadedFile::fake()->image('large.jpg')->size(5121)]);
-        $this->actingAs($officer)->post("/officer/pickups/{$pickup->id}/checkin",$large)->assertSessionHasErrors('photo');
+        $bad = $this->payload(4, ['photo' => UploadedFile::fake()->create('bad.txt', 1, 'text/plain')]);
+        $this->actingAs($officer)->post("/officer/pickups/{$pickup->id}/checkin", $bad)->assertSessionHasErrors('photo');
+        $large = $this->payload(4, ['photo' => UploadedFile::fake()->image('large.jpg')->size(5121)]);
+        $this->actingAs($officer)->post("/officer/pickups/{$pickup->id}/checkin", $large)->assertSessionHasErrors('photo');
     }
 
     public function test_failed_transaction_removes_staged_files_and_rows(): void
     {
         [$pickup,, $officer] = $this->fixture();
         $payload = $this->payload(4);
-        $serviceMock = new class extends \App\Services\PickupCheckinService {
+        $serviceMock = new class extends PickupCheckinService
+        {
             public function complete(Pickup $sourcePickup, array $data): Pickup
             {
-                \App\Models\WarehouseMutation::flushEventListeners();
-                \Illuminate\Support\Facades\DB::beginTransaction();
-                \Illuminate\Support\Facades\Storage::disk('s3-private')->put('pickup-evidence/test-fail.jpg', 'x');
-                \Illuminate\Support\Facades\DB::rollBack();
-                if (\Illuminate\Support\Facades\Storage::disk('s3-private')->exists('pickup-evidence/test-fail.jpg')) \Illuminate\Support\Facades\Storage::disk('s3-private')->delete('pickup-evidence/test-fail.jpg');
+                WarehouseMutation::flushEventListeners();
+                DB::beginTransaction();
+                Storage::disk('s3-private')->put('pickup-evidence/test-fail.jpg', 'x');
+                DB::rollBack();
+                if (Storage::disk('s3-private')->exists('pickup-evidence/test-fail.jpg')) {
+                    Storage::disk('s3-private')->delete('pickup-evidence/test-fail.jpg');
+                }
+
                 return $sourcePickup;
             }
         };
-        $this->app->instance(\App\Services\PickupCheckinService::class, $serviceMock);
-        $this->actingAs($officer)->post("/officer/pickups/{$pickup->id}/checkin",$payload)->assertRedirect();
+        $this->app->instance(PickupCheckinService::class, $serviceMock);
+        $this->actingAs($officer)->post("/officer/pickups/{$pickup->id}/checkin", $payload)->assertRedirect();
         $this->assertFalse(Storage::disk('s3-private')->exists('pickup-evidence/test-fail.jpg'));
-        $this->assertDatabaseCount('classification_lots',0);
+        $this->assertDatabaseCount('classification_lots', 0);
     }
 
     public function test_supplier_rejected_status_is_distinct_from_review_rejected(): void
     {
         [$pickup,$report,$officer] = $this->fixture();
-        $payload = $this->payload(0,['grades'=>[],'supplier_rejected'=>true,'refusal_reason'=>'spoiled','rejection_photo'=>UploadedFile::fake()->image('reject.jpg')]);
-        $this->actingAs($officer)->post("/officer/pickups/{$pickup->id}/checkin",$payload)->assertRedirect();
-        $this->assertSame('supplier_rejected',$report->fresh()->status);
-        $this->assertNotSame('rejected',$report->fresh()->status);
+        $payload = $this->payload(0, ['grades' => [], 'supplier_rejected' => true, 'refusal_reason' => 'spoiled', 'rejection_photo' => UploadedFile::fake()->image('reject.jpg')]);
+        $this->actingAs($officer)->post("/officer/pickups/{$pickup->id}/checkin", $payload)->assertRedirect();
+        $this->assertSame('supplier_rejected', $report->fresh()->status);
+        $this->assertNotSame('rejected', $report->fresh()->status);
     }
 
     public function test_supplier_payment_lines_snapshot_buy_price_and_never_duplicate(): void
     {
         [$pickup, , $officer] = $this->fixture();
-        \App\Models\Price::create(['grade' => 'Layak', 'buy_price' => 1500, 'sell_price' => 3000]);
-        \App\Models\Price::create(['grade' => 'Tidak Layak', 'buy_price' => 0, 'sell_price' => 500]);
+        Price::create(['grade' => 'Layak', 'buy_price' => 1500, 'sell_price' => 3000]);
+        Price::create(['grade' => 'Tidak Layak', 'buy_price' => 0, 'sell_price' => 500]);
         $payload = $this->payload(5, ['grades' => [['grade' => 'Layak', 'kg' => 3], ['grade' => 'Tidak Layak', 'kg' => 2]]]);
         $this->actingAs($officer)->post("/officer/pickups/{$pickup->id}/checkin", $payload)->assertRedirect();
 
-        $payments = \App\Models\FinancialLine::where('pickup_id', $pickup->id)->get();
+        $payments = FinancialLine::where('pickup_id', $pickup->id)->get();
         $this->assertSame(2, $payments->count());
         $layak = $payments->firstWhere('grade', 'Layak');
         $this->assertSame('supplier_payment', $layak->type);
         $this->assertSame('payable', $layak->direction);
-        $this->assertSame('issued', $layak->status);
+        // Cash on pickup (D5/D7): freshly created supplier_payment lines settle
+        // immediately at weigh-in via markPaid(); retries stay untouched.
+        $this->assertSame('paid', $layak->status);
         $this->assertSame('1500.00', (string) $layak->unit_price);
         $this->assertSame('4500.00', (string) $layak->amount);
         $this->assertSame($pickup->supplier_report_id, $layak->supplier_report_id);
@@ -179,7 +193,7 @@ class CanonicalPickupCheckinTest extends TestCase
 
         // Retry with identical payload must not duplicate payment lines.
         $this->actingAs($officer)->post("/officer/pickups/{$pickup->id}/checkin", $payload)->assertRedirect();
-        $this->assertSame(2, \App\Models\FinancialLine::where('pickup_id', $pickup->id)->count());
+        $this->assertSame(2, FinancialLine::where('pickup_id', $pickup->id)->count());
     }
 
     public function test_supplier_rejection_creates_no_payment_lines(): void

@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\PickupTask;
 use App\Models\Vehicle;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,7 +17,7 @@ class VehicleController extends Controller
             'name' => $v->name,
             'capacity_kg' => (float) $v->capacity_kg,
             'is_active' => $v->is_active,
-            'active_tasks' => $v->pickupTasks()->whereIn('status', ['pending', 'assigned', 'in_progress'])->count(),
+            'active_tasks' => $v->deliveryTrips()->whereHas('delivery', fn ($q) => $q->whereIn('status', ['planned', 'assigned', 'in_transit']))->whereIn('status', ['planned', 'assigned', 'in_progress'])->count(),
         ]);
 
         return Inertia::render('vehicles/index', ['vehicles' => $vehicles]);

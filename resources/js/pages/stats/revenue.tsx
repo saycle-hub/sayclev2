@@ -26,14 +26,16 @@ export interface RevenueRow {
     pihak: string;
     grade: string;
     kg: number;
+    status: string;
     pengeluaran: number;
     pendapatan: number;
+    paid: number;
     margin: number;
 }
 
 interface Props {
     transactions: RevenueRow[];
-    totals: { pendapatan: number; pengeluaran: number; margin: number };
+    totals: { pendapatan: number; pengeluaran: number; terbayar: number; margin: number };
 }
 
 function formatRupiah(value: number): string {
@@ -83,6 +85,7 @@ export default function StatsRevenue({ transactions, totals }: Props) {
                                         <TableHead>Kg</TableHead>
                                         <TableHead>Pengeluaran</TableHead>
                                         <TableHead>Pendapatan</TableHead>
+                                        <TableHead>Terbayar</TableHead>
                                         <TableHead className="text-right">Margin</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -96,6 +99,7 @@ export default function StatsRevenue({ transactions, totals }: Props) {
                                             <TableCell className="tabular-nums text-[#18352a]/70">{formatKg(t.kg)}</TableCell>
                                             <TableCell className="tabular-nums text-[#18352a]/70">{formatRupiah(t.pengeluaran)}</TableCell>
                                             <TableCell className="tabular-nums text-[#18352a]/70">{formatRupiah(t.pendapatan)}</TableCell>
+                                            <TableCell className="tabular-nums text-[#18352a]/70">{formatRupiah(t.paid)}</TableCell>
                                             <TableCell
                                                 className={
                                                     t.margin >= 0

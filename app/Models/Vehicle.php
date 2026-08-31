@@ -17,10 +17,8 @@ class Vehicle extends Model
         ];
     }
 
-    public function pickupTasks(): HasMany
+    public function deliveryTrips(): HasMany
     {
-        return $this->hasMany(PickupTask::class);
+        return $this->hasMany(DeliveryTrip::class);
     }
-
-    public function deliveryTrips(): HasMany { return $this->hasMany(DeliveryTrip::class); }
 }

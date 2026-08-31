@@ -83,14 +83,6 @@ Route::middleware(['auth'])->group(function () {
         // Partner invoice payment recording (Fase 7, D7: manual recording).
         Route::post('partner-invoices/{invoice}/pay', [PartnerInvoiceController::class, 'pay'])->name('partner-invoices.pay');
 
-        // Safe stubs for modules shipped in later phases, so admin nav never 404s.
-        $stubs = [
-            'tasks' => 'Tugas',
-        ];
-        foreach ($stubs as $path => $module) {
-            Route::get($path, fn () => Inertia::render('coming-soon', ['module' => $module]))->name("admin.{$path}");
-        }
-
         // Statistics & impact dashboard (Fase 8).
         Route::get('stats', [StatsController::class, 'index'])->name('stats.index');
         Route::get('stats/revenue', [StatsController::class, 'revenue'])->name('stats.revenue');
@@ -105,7 +97,6 @@ Route::middleware(['auth'])->group(function () {
         Route::get('tasks', [OfficerController::class, 'dashboard'])->name('tasks');
         Route::get('routes', [OfficerController::class, 'dashboard'])->name('routes');
         Route::get('weighing', [OfficerController::class, 'dashboard'])->name('weighing');
-        Route::post('tasks/{task}/checkin', [OfficerController::class, 'checkin'])->name('tasks.checkin');
         Route::post('pickups/{pickup}/checkin', [OfficerController::class, 'checkinPickup'])->name('pickups.checkin');
         Route::post('deliveries/{trip}/complete', [OfficerController::class, 'completeDelivery'])->name('deliveries.complete');
     });

@@ -197,17 +197,12 @@ class StockManagementTest extends TestCase
             ->where('stats.estimated_revenue', 15000));
     }
 
-    public function test_admin_module_stub_pages_render(): void
+    public function test_admin_module_pages_render(): void
     {
         $admin = $this->admin();
 
-        // Only the tasks module remains a stub; routes (Fase 5) and stats
-        // (Fase 8) now have real pages, asserted below.
-        $this->actingAs($admin)->get('/tasks')
-            ->assertOk()
-            ->assertInertia(fn ($page) => $page->component('coming-soon')->has('module'));
-
-        // Replaced stubs must render their real components (nav never 404s).
+        // All admin nav targets render real pages (nav never 404s): routes
+        // (Fase 5) and stats (Fase 8) replaced their stubs.
         $this->actingAs($admin)->get('/routes')
             ->assertOk()
             ->assertInertia(fn ($page) => $page->component('routes/index'));

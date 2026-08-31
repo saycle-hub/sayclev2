@@ -17,7 +17,8 @@ use Inertia\Response;
  *
  *   - kg terolah  = warehouse_mutations receipts (immutable ledger);
  *   - pengeluaran = financial_lines supplier_payment snapshot amounts
- *     (recorded at check-in with the buy price at that moment);
+ *     (paid supplier_payment snapshots — cash on pickup, recorded and
+ *     settled at check-in with the buy price at that moment);
  *   - pendapatan  = financial_lines partner_invoice snapshot amounts
  *     (recorded at delivery with contract / modal price at that moment).
  *
@@ -56,6 +57,7 @@ class StatsController extends Controller
             'totals' => [
                 'pendapatan' => round((float) $transactions->sum('pendapatan'), 2),
                 'pengeluaran' => round((float) $transactions->sum('pengeluaran'), 2),
+                'terbayar' => round((float) $transactions->sum('paid'), 2),
                 'margin' => round((float) $transactions->sum('margin'), 2),
             ],
         ]);
@@ -113,7 +115,7 @@ class StatsController extends Controller
      */
     private function kpi(): array
     {
-        $pengeluaran = (float) FinancialLine::query()->where('type', 'supplier_payment')->sum('amount');
+        $pengeluaran = (float) FinancialLine::query()->where('type', 'supplier_payment')->where('status', 'paid')->sum('amount');
         $pendapatan = (float) FinancialLine::query()->where('type', 'partner_invoice')->sum('amount');
 
         return [
@@ -147,8 +149,10 @@ class StatsController extends Controller
             'pihak' => $party,
             'grade' => $line->grade ?? '-',
             'kg' => (float) ($line->kg ?? 0),
+            'status' => $line->status,
             'pengeluaran' => $isPayable ? $amount : 0.0,
             'pendapatan' => $isPayable ? 0.0 : $amount,
+            'paid' => $isPayable ? ($line->status === 'paid' ? $amount : 0.0) : 0.0,
             'margin' => $isPayable ? -$amount : $amount,
         ];
     }

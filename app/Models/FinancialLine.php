@@ -36,4 +36,11 @@ class FinancialLine extends Model
     {
         return $this->belongsTo(SupplierReport::class);
     }
+
+    public function markPaid(): static
+    {
+        $this->forceFill(['status' => 'paid', 'paid_at' => now()])->save();
+
+        return $this;
+    }
 }

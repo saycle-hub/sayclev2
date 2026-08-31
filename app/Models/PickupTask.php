@@ -10,7 +10,6 @@ class PickupTask extends Model
     public const STATUSES = ['pending', 'assigned', 'in_progress', 'done'];
 
     protected $fillable = [
-        'sale_id',
         'vehicle_id',
         'officer_id',
         'stop_order',
@@ -37,11 +36,6 @@ class PickupTask extends Model
             'checkin_lng' => 'decimal:7',
             'checked_in_at' => 'datetime',
         ];
-    }
-
-    public function sale(): BelongsTo
-    {
-        return $this->belongsTo(Sale::class);
     }
 
     public function vehicle(): BelongsTo
