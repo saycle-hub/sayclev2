@@ -36,11 +36,14 @@ class StockManagementTest extends TestCase
 
     public function test_admin_can_view_stock_index(): void
     {
-        Stock::create(['grade' => 'Layak', 'kg' => 10, 'type' => 'in']);
-        Stock::create(['grade' => 'Layak', 'kg' => 3, 'type' => 'out']);
-        Stock::create(['grade' => 'Tidak Layak', 'kg' => 5, 'type' => 'in']);
+        // Stock totals read the canonical ledger; entries come via the admin
+        // adjust endpoint which mirrors into warehouse_mutations.
+        $admin = $this->admin();
+        $this->actingAs($admin)->post('/stock/adjust', ['grade' => 'Layak', 'type' => 'in', 'kg' => 10]);
+        $this->actingAs($admin)->post('/stock/adjust', ['grade' => 'Layak', 'type' => 'out', 'kg' => 3]);
+        $this->actingAs($admin)->post('/stock/adjust', ['grade' => 'Tidak Layak', 'type' => 'in', 'kg' => 5]);
 
-        $response = $this->actingAs($this->admin())->get('/stock');
+        $response = $this->actingAs($admin)->get('/stock');
 
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page
@@ -179,11 +182,12 @@ class StockManagementTest extends TestCase
 
     public function test_dashboard_shows_stock_stats(): void
     {
-        Stock::create(['grade' => 'Layak', 'kg' => 20, 'type' => 'in']);
-        Stock::create(['grade' => 'Layak', 'kg' => 5, 'type' => 'out']);
+        $admin = $this->admin();
+        $this->actingAs($admin)->post('/stock/adjust', ['grade' => 'Layak', 'type' => 'in', 'kg' => 20]);
+        $this->actingAs($admin)->post('/stock/adjust', ['grade' => 'Layak', 'type' => 'out', 'kg' => 5]);
         Price::create(['grade' => 'Layak', 'buy_price' => 0, 'sell_price' => 1000]);
 
-        $response = $this->actingAs($this->admin())->get('/dashboard');
+        $response = $this->actingAs($admin)->get('/dashboard');
 
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page

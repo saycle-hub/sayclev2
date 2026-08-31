@@ -17,6 +17,7 @@ interface OverviewRow {
     ideal_kg: number;
     maximum_kg: number;
     allocated_kg: number;
+    held_kg: number;
     status: string;
 }
 
@@ -24,6 +25,7 @@ const statusStyles: Record<string, string> = {
     Defisit: 'border-transparent bg-[#6b4f2e]/10 text-[#6b4f2e]',
     Normal: 'border-transparent bg-[#2f6848]/10 text-[#2f6848]',
     Surplus: 'border-transparent bg-[#e88c12]/15 text-[#18352a]',
+    'Surplus ditahan': 'border-transparent bg-[#e88c12]/15 text-[#18352a]',
     'Belum dijalankan': 'border-transparent bg-[#18352a]/10 text-[#18352a]',
     'Tanpa kontrak': 'border-transparent bg-[#18352a]/10 text-[#18352a]',
 };
@@ -32,7 +34,7 @@ function formatKg(value: number): string {
     return `${value.toLocaleString('id-ID', { maximumFractionDigits: 1 })} kg`;
 }
 
-export default function AllocationIndex({ hasRun, overview, pendingOvercapacity }: { weekStart?: string; hasRun: boolean; overview: OverviewRow[]; pendingOvercapacity: number }) {
+export default function AllocationIndex({ hasRun, overview, heldGrades = 0 }: { weekStart?: string; hasRun: boolean; overview: OverviewRow[]; heldGrades?: number }) {
     const form = useForm({});
 
     const run = () => {
@@ -61,9 +63,9 @@ export default function AllocationIndex({ hasRun, overview, pendingOvercapacity 
                     </button>
                 </div>
 
-                {pendingOvercapacity > 0 && (
+                {heldGrades > 0 && (
                     <div role="status" className="rounded-xl border border-[#e88c12]/40 bg-[#e88c12]/10 p-4 text-sm text-[#18352a]">
-                        {pendingOvercapacity} alokasi overcapacity menunggu persetujuan. Buka detail grade untuk memproses.
+                        Ada surplus melebihi kapasitas semua mitra dan ditahan di gudang (tetap tercatat per grade, menunggu arahan tujuan).
                     </div>
                 )}
 
@@ -90,6 +92,12 @@ export default function AllocationIndex({ hasRun, overview, pendingOvercapacity 
                                         <dt className="text-[#18352a]/70">Total minimum</dt>
                                         <dd className="font-semibold text-[#18352a] tabular-nums">{formatKg(row.demand_kg)}</dd>
                                     </div>
+                                    {row.held_kg > 0 && (
+                                        <div className="col-span-2 rounded-lg bg-[#e88c12]/10 px-3 py-2">
+                                            <dt className="text-[#18352a]/70">Ditahan di gudang</dt>
+                                            <dd className="font-semibold text-[#18352a] tabular-nums">{formatKg(row.held_kg)}</dd>
+                                        </div>
+                                    )}
                                 </dl>
                                 <div className="mt-4">
                                     {/* Aggregate contract scale: min/ideal/max across active contracts of this grade. */}

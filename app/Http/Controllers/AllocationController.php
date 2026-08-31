@@ -23,8 +23,9 @@ class AllocationController extends Controller
         $hasRun = Allocation::whereDate('week_start', $weekStart)->exists();
 
         $overview = collect(Stock::GRADES)->map(function (string $grade) use ($weekStart, $hasRun) {
-            $stock = (float) (Stock::query()->where('grade', $grade)
-                ->selectRaw(Stock::signedTotalSql().' as total')->value('total') ?? 0);
+            // Display stock is the physical ledger total (reservations included);
+            // the engine's free pool is an allocation-input concept, not a KPI.
+            $stock = (float) $this->engine->totalStock($grade);
 
             $demand = (float) Contract::query()
                 ->where('grade', $grade)->where('status', 'active')
@@ -35,15 +36,19 @@ class AllocationController extends Controller
             // Status is re-derived honestly for display: no active contracts →
             // 'Tanpa kontrak'; the engine itself returns the same states on run.
             $status = 'Belum dijalankan';
+            $held = 0.0;
             if ($hasRun) {
                 $activeContractCount = Contract::query()->where('grade', $grade)->where('status', 'active')->count();
+                $totalMax = (float) Contract::query()->where('grade', $grade)->where('status', 'active')->sum('max_capacity_kg');
                 $status = $activeContractCount === 0
                     ? 'Tanpa kontrak'
                     : match (true) {
                         $stock < $demand => 'Defisit',
                         $stock <= (float) Contract::query()->where('grade', $grade)->where('status', 'active')->sum('ideal_capacity_kg') => 'Normal',
+                        $stock > $totalMax => 'Surplus ditahan',
                         default => 'Surplus',
                     };
+                $held = max(0.0, round($stock - $allocated, 2));
             }
 
             return [
@@ -53,6 +58,7 @@ class AllocationController extends Controller
                 'ideal_kg' => round((float) Contract::query()->where('grade', $grade)->where('status', 'active')->sum('ideal_capacity_kg'), 2),
                 'maximum_kg' => round((float) Contract::query()->where('grade', $grade)->where('status', 'active')->sum('max_capacity_kg'), 2),
                 'allocated_kg' => round($allocated, 2),
+                'held_kg' => round($held, 2),
                 'status' => $status,
             ];
         })->values();
@@ -61,8 +67,7 @@ class AllocationController extends Controller
             'weekStart' => $weekStart,
             'hasRun' => $hasRun,
             'overview' => $overview,
-            'pendingOvercapacity' => Allocation::whereDate('week_start', $weekStart)
-                ->where('allocation_type', 'overcapacity')->where('status', 'pending')->count(),
+            'heldGrades' => $overview->filter(fn (array $row) => $row['held_kg'] > 0)->count(),
         ]);
     }
 

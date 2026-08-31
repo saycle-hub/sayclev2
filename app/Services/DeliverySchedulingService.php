@@ -16,9 +16,65 @@ class DeliverySchedulingService {
         $count = 0;
         foreach ($contracts->groupBy('partner_id') as $partnerId => $group) {
             $delivery = DB::transaction(function() use($partnerId,$group,$date){ $d=Delivery::where(['partner_id'=>$partnerId,'service_date'=>$date->toDateString()])->lockForUpdate()->first(); if(!$d) $d=Delivery::create(['partner_id'=>$partnerId,'contract_id'=>$group->sortBy('id')->first()->id,'service_date'=>$date,'status'=>'planned','scheduled_for'=>$date]); if(!in_array($d->status,['assigned','in_transit','delivered','failed','cancelled'],true)) $d->contracts()->syncWithoutDetaching($group->pluck('id')); return $d; });
+            // Fase 6: turn reserved allocations into concrete delivery lines.
+            $this->buildCandidateLines($delivery);
             $count++;
         }
         return $count;
+    }
+
+    /**
+     * Build delivery candidate lines from active reservations for a planned
+     * delivery (Fase 6: allocation → delivery candidate). Idempotent: lines
+     * already created for a reservation are not duplicated, and reservation
+     * kg already consumed by active trips is never re-candidated.
+     */
+    public function buildCandidateLines(Delivery $delivery): int {
+        if (!in_array($delivery->status, ['planned'], true)) return 0;
+        return DB::transaction(function () use ($delivery) {
+            $delivery = Delivery::whereKey($delivery->id)->lockForUpdate()->firstOrFail();
+            if ($delivery->status !== 'planned') return 0;
+            $existingReservationIds = $delivery->lines()->pluck('reservation_id')->all();
+            $serviceDate = $delivery->service_date;
+            $contractIds = $delivery->contracts()->pluck('contracts.id')->all();
+
+            $reservations = \App\Models\Reservation::query()
+                ->where('status', 'reserved')
+                ->whereHas('allocation', function ($q) use ($delivery, $contractIds) {
+                    $q->where('partner_id', $delivery->partner_id)
+                        ->where('status', 'approved')
+                        ->whereIn('contract_id', $contractIds);
+                })
+                ->with('allocation')
+                ->lockForUpdate()
+                ->get()
+                ->filter(function (\App\Models\Reservation $r) use ($delivery, $serviceDate, $contractIds, $existingReservationIds) {
+                    if (in_array($r->id, $existingReservationIds, true)) return false;
+                    $a = $r->allocation;
+                    if (!$a) return false;
+                    if ($a->period_start && $serviceDate->lt($a->period_start)) return false;
+                    if ($a->period_end && $serviceDate->gt($a->period_end)) return false;
+                    return true;
+                });
+
+            $created = 0;
+            foreach ($reservations as $r) {
+                $consumed = (float) \App\Models\DeliveryTripLine::query()
+                    ->whereHas('trip', fn ($q) => $q->whereNotIn('status', ['cancelled']))
+                    ->whereHas('deliveryLine', fn ($q) => $q->where('reservation_id', $r->id))
+                    ->sum('planned_kg');
+                $free = round((float) $r->reserved_kg - $consumed, 2);
+                if ($free <= 0.00001) continue;
+                $delivery->lines()->create([
+                    'reservation_id' => $r->id,
+                    'grade' => $r->grade,
+                    'intended_use' => $r->intended_use,
+                    'kg' => $free,
+                ]);
+                $created++;
+            }
+            return $created;
+        });
     }
     private function recurs(Contract $c, CarbonInterface $date): bool {
         return match ($c->frequency) {

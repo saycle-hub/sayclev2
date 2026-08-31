@@ -189,13 +189,13 @@ Untuk setiap grade, dalam periode pengiriman:
 
 ### Tasks
 
-- [ ] Kurir check-in pickup dengan GPS, foto, timestamp, dan data per tiga grade.
-- [ ] Validasi total klasifikasi serta bukti lokasi sesuai toleransi operasional.
-- [ ] Buat label/lot yang menghubungkan source supply ke kuantitas grade.
-- [ ] Terima lot ke gudang melalui stock ledger immutable.
-- [ ] Buat idempotency key agar retry check-in tidak menggandakan stock-in.
-- [ ] Catat pembayaran pemasok dan bukti transaksi sesuai basis pembayaran yang diputuskan.
-- [ ] Admin melihat kg per pemasok dan grade.
+- [x] Kurir check-in pickup dengan GPS, foto, timestamp, dan data per tiga grade.
+- [x] Validasi total klasifikasi serta bukti lokasi sesuai toleransi operasional.
+- [x] Buat label/lot yang menghubungkan source supply ke kuantitas grade.
+- [x] Terima lot ke gudang melalui stock ledger immutable.
+- [x] Buat idempotency key agar retry check-in tidak menggandakan stock-in.
+- [x] Catat pembayaran pemasok dan bukti transaksi sesuai basis pembayaran yang diputuskan.
+- [x] Admin melihat kg per pemasok dan grade.
 
 ### Exit gate
 

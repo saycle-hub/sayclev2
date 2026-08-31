@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Partner;
 use App\Models\Price;
 use App\Models\Stock;
+use App\Models\WarehouseMutation;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +16,8 @@ class StockController extends Controller
 {
     /**
      * Per-grade totals plus recent mutation log and 30-day cumulative trend.
+     * Totals read the canonical warehouse ledger; the legacy `stocks` table is
+     * kept for the mutation log display only.
      */
     public function index(): Response
     {
@@ -67,6 +70,19 @@ class StockController extends Controller
 
         Stock::create($validated);
 
+        // Mirror into the canonical warehouse ledger so the allocation engine
+        // and stock displays always share one source of truth. Adjustment
+        // rows carry their own sign; in/out are positive magnitudes.
+        WarehouseMutation::create([
+            'type' => 'adjustment',
+            'grade' => $validated['grade'],
+            'intended_use' => null,
+            'kg' => $validated['type'] === 'out' ? -abs((float) $validated['kg']) : (float) $validated['kg'],
+            'description' => trim(($validated['description'] ?? '').' (koreksi admin)'),
+            'performed_by' => auth()->id(),
+            'occurred_at' => now(),
+        ]);
+
         return back()->with('success', 'Mutasi stok berhasil dicatat.');
     }
 
@@ -76,7 +92,6 @@ class StockController extends Controller
     public function dashboard(): Response
     {
         $totals = $this->totalsPerGrade();
-
         $stock = collect(Stock::GRADES)->map(fn (string $grade) => [
             'grade' => $grade,
             'total_kg' => (float) ($totals[$grade] ?? 0),
@@ -109,9 +124,9 @@ class StockController extends Controller
      */
     private function totalsPerGrade(): \Illuminate\Support\Collection
     {
-        return Stock::query()
+        return WarehouseMutation::query()
             ->select('grade')
-            ->selectRaw(Stock::signedTotalSql().' as total_kg')
+            ->selectRaw('SUM(kg) as total_kg')
             ->groupBy('grade')
             ->pluck('total_kg', 'grade');
     }
@@ -121,10 +136,10 @@ class StockController extends Controller
      */
     private function trend(): \Illuminate\Support\Collection
     {
-        $rows = Stock::query()
-            ->selectRaw('DATE(created_at) as date')
-            ->selectRaw(Stock::signedTotalSql().' as net_kg')
-            ->groupBy(DB::raw('DATE(created_at)'))
+        $rows = WarehouseMutation::query()
+            ->selectRaw('DATE(occurred_at) as date')
+            ->selectRaw('SUM(kg) as net_kg')
+            ->groupBy(DB::raw('DATE(occurred_at)'))
             ->orderBy('date')
             ->limit(30)
             ->get();
