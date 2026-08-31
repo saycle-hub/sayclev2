@@ -11,7 +11,7 @@ class SupplierReport extends Model
 {
     use HasFactory;
 
-    public const STATUSES = ['submitted', 'under_review', 'accepted', 'rejected', 'pickup_scheduled', 'picked_up', 'closed'];
+    public const STATUSES = ['submitted', 'under_review', 'accepted', 'rejected', 'pickup_scheduled', 'picked_up', 'supplier_rejected', 'closed'];
 
     protected $fillable = ['public_id', 'contact_name', 'phone', 'estimated_kg', 'photo_path', 'location_consent', 'latitude', 'longitude', 'manual_address', 'status', 'pin_hash'];
 

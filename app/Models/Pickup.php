@@ -11,13 +11,13 @@ class Pickup extends Model
 {
     use HasFactory;
 
-    public const STATUSES = ['planned', 'assigned', 'in_progress', 'completed', 'cancelled'];
+    public const STATUSES = ['planned', 'assigned', 'in_progress', 'completed', 'supplier_rejected', 'cancelled'];
 
-    protected $fillable = ['supplier_report_id', 'vehicle_id', 'officer_id', 'scheduled_for', 'stop_order', 'status', 'estimated_kg', 'actual_total_kg', 'distance_m', 'duration_s', 'photo_path', 'checkin_lat', 'checkin_lng', 'checked_in_at', 'completed_at'];
+    protected $fillable = ['supplier_report_id', 'vehicle_id', 'officer_id', 'scheduled_for', 'stop_order', 'status', 'estimated_kg', 'actual_total_kg', 'distance_m', 'duration_s', 'photo_path', 'checkin_lat', 'checkin_lng', 'checked_in_at', 'completed_at', 'refusal_reason', 'rejected_at', 'rejection_photo_path', 'completion_payload_hash'];
 
     protected function casts(): array
     {
-        return ['scheduled_for' => 'datetime', 'estimated_kg' => 'decimal:2', 'actual_total_kg' => 'decimal:2', 'distance_m' => 'decimal:2', 'duration_s' => 'integer', 'checkin_lat' => 'decimal:7', 'checkin_lng' => 'decimal:7', 'checked_in_at' => 'datetime', 'completed_at' => 'datetime'];
+        return ['scheduled_for' => 'datetime', 'estimated_kg' => 'decimal:2', 'actual_total_kg' => 'decimal:2', 'distance_m' => 'decimal:2', 'duration_s' => 'integer', 'checkin_lat' => 'decimal:7', 'checkin_lng' => 'decimal:7', 'checked_in_at' => 'datetime', 'completed_at' => 'datetime', 'rejected_at' => 'datetime'];
     }
 
     public function supplierReport(): BelongsTo

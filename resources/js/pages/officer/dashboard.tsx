@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Head, useForm } from '@inertiajs/react';
 import { useState } from 'react';
-import { MapPin } from 'lucide-react';
+import { Camera, LocateFixed, MapPin } from 'lucide-react';
 import { FlashBanner } from '@/components/flash-banner';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -46,7 +46,7 @@ interface RouteItem {
     longitude: number | null;
 }
 
-function RouteSection({ title, items, empty }: { title: string; items: RouteItem[]; empty: string }) {
+function RouteSection({ title, items, empty, onCheckin }: { title: string; items: RouteItem[]; empty: string; onCheckin?: (item: RouteItem) => void }) {
     return (
         <section className="mb-7" aria-labelledby={`${title.toLowerCase()}-heading`}>
             <div className="mb-3 flex items-baseline justify-between">
@@ -82,6 +82,11 @@ function RouteSection({ title, items, empty }: { title: string; items: RouteItem
                                             <span><strong className="block text-[#18352a]">Kendaraan</strong>{item.vehicle?.name ?? 'Belum ada'}</span>
                                             <span><strong className="block text-[#18352a]">Rencana</strong>{item.planned_kg.toLocaleString('id-ID')} kg</span>
                                         </div>
+                                        {onCheckin && ['assigned', 'in_progress'].includes(item.status) && (
+                                            <Button onClick={() => onCheckin(item)} className="mt-4 min-h-11 bg-[#e88c12] text-[#f4f3ed] hover:bg-[#d17a0a]">
+                                                <Camera className="h-4 w-4" /> Check-in pickup
+                                            </Button>
+                                        )}
                                     </div>
                                 </div>
                             </Card>
@@ -94,8 +99,11 @@ function RouteSection({ title, items, empty }: { title: string; items: RouteItem
 }
 
 export default function OfficerDashboard({ legacyTasks = [], pickups, deliveries }: Props) {
-    // Canonical pickup/delivery route props are read-only; legacy check-in remains isolated to explicit tasks.
+    // Canonical pickup check-in is distinct from legacy pickup tasks.
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+    const [selectedPickup, setSelectedPickup] = useState<RouteItem | null>(null);
+    const pickupForm = useForm({ photo: null as File | null, rejection_photo: null as File | null, actual_total_kg: '0', supplier_rejected: false, checkin_lat: '', checkin_lng: '', layak_kg: '', kurang_layak_kg: '', tidak_layak_kg: '', refusal_reason: '' });
+    const [pickupError, setPickupError] = useState('');
     const [gpsError, setGpsError] = useState<string | null>(null);
     const [gpsLoading, setGpsLoading] = useState(false);
 
@@ -155,6 +163,40 @@ export default function OfficerDashboard({ legacyTasks = [], pickups, deliveries
         });
     };
 
+    const submitPickupCheckin = () => {
+        if (!selectedPickup) return;
+        const amounts = ['layak_kg', 'kurang_layak_kg', 'tidak_layak_kg'].map((key) => Number(pickupForm.data[key as 'layak_kg' | 'kurang_layak_kg' | 'tidak_layak_kg'] || 0));
+        if (amounts.some((value) => !Number.isFinite(value) || value < 0)) return setPickupError('Semua berat harus angka nol atau lebih.');
+        const total = Number(amounts.reduce((sum, value) => sum + value, 0).toFixed(2));
+        const supplierRejected = total === 0;
+        if (supplierRejected && !pickupForm.data.refusal_reason.trim()) return setPickupError('Alasan wajib diisi jika total pengambilan 0 kg.');
+        if (supplierRejected && !pickupForm.data.rejection_photo) return setPickupError('Foto kondisi penolakan wajib diunggah.');
+        if (!pickupForm.data.photo) return setPickupError('Foto pickup wajib diunggah.');
+        if (!pickupForm.data.checkin_lat || !pickupForm.data.checkin_lng) return setPickupError('Izinkan dan ambil lokasi sebelum check-in.');
+
+        const grades = [
+            { grade: 'Layak', kg: amounts[0] },
+            { grade: 'Kurang Layak', kg: amounts[1] },
+            { grade: 'Tidak Layak', kg: amounts[2] },
+        ].filter((row) => row.kg > 0);
+
+        pickupForm.clearErrors();
+        pickupForm.transform((data) => ({
+            photo: data.photo,
+            rejection_photo: supplierRejected ? data.rejection_photo : null,
+            actual_total_kg: String(total),
+            supplier_rejected: supplierRejected ? '1' : '0',
+            refusal_reason: supplierRejected ? data.refusal_reason : null,
+            checkin_lat: data.checkin_lat,
+            checkin_lng: data.checkin_lng,
+            grades,
+        }));
+        pickupForm.post(route('officer.pickups.checkin', selectedPickup.id), {
+            forceFormData: true,
+            onSuccess: () => { setSelectedPickup(null); pickupForm.reset(); pickupForm.transform((data) => data); setPickupError(''); },
+        });
+    };
+
     const pending = legacyTasks.filter((t) => t.status === 'assigned' || t.status === 'in_progress');
     const done = legacyTasks.filter((t) => t.status === 'done');
 
@@ -178,7 +220,7 @@ export default function OfficerDashboard({ legacyTasks = [], pickups, deliveries
                         </Card>
                     )}
 
-                    <RouteSection title="Pickup" items={pickups} empty="Tidak ada pickup terjadwal." />
+                    <RouteSection title="Pickup" items={pickups} empty="Tidak ada pickup terjadwal." onCheckin={(item) => { setSelectedPickup(item); setPickupError(''); }} />
                     <RouteSection title="Delivery" items={deliveries} empty="Tidak ada delivery terjadwal." />
 
                     {/* Legacy pickup check-in controls. Canonical route cards stay read-only. */}
@@ -243,6 +285,32 @@ export default function OfficerDashboard({ legacyTasks = [], pickups, deliveries
                         </div>
                     )}
                 </div>
+
+                {selectedPickup && (
+                    <div className="fixed inset-0 z-50 flex items-end bg-[#18352a]/50 sm:items-center sm:justify-center">
+                        <Card className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl p-6 sm:rounded-2xl">
+                            <h2 className="mb-2 text-lg font-semibold text-[#18352a]">Check-in pickup: {selectedPickup.supplier?.name ?? 'Lokasi pickup'}</h2>
+                            <p className="mb-4 text-sm text-[#18352a]/70">Izinkan lokasi, unggah foto, lalu masukkan berat per grade. Total grade harus sama dengan hasil pengambilan.</p>
+                            <div className="space-y-4">
+                                <button type="button" onClick={() => navigator.geolocation?.getCurrentPosition((p) => pickupForm.setData({ ...pickupForm.data, checkin_lat: p.coords.latitude.toFixed(7), checkin_lng: p.coords.longitude.toFixed(7) }), () => setPickupError('Lokasi gagal diambil. Coba lagi.'), { enableHighAccuracy: true, timeout: 10000 })} className="flex min-h-11 items-center gap-2 rounded-full border border-[#2f6848]/25 px-4 text-sm font-semibold"><LocateFixed size={16} />Ambil lokasi</button>
+                                <p className="text-xs text-[#18352a]/60">Lokasi membantu officer membuktikan titik penjemputan tanpa mengubah alamat.</p>
+                                <div><Label htmlFor="pickup-photo">Foto pickup *</Label><Input id="pickup-photo" required type="file" accept="image/jpeg,image/png" className="mt-1 min-h-11" onChange={(e) => pickupForm.setData('photo', e.target.files?.[0] ?? null)} />{pickupForm.errors.photo && <p className="mt-1 text-sm text-red-600">{pickupForm.errors.photo}</p>}</div>
+                                <div className="grid gap-3 rounded-xl bg-[#f4f3ed] p-3">
+                                    {[
+                                        ['layak_kg', 'Layak', 'Untuk pakan ternak'],
+                                        ['kurang_layak_kg', 'Kurang Layak', 'Untuk maggot'],
+                                        ['tidak_layak_kg', 'Tidak Layak', 'Untuk kompos'],
+                                    ].map(([key, label, guidance]) => <label key={key} className="text-sm font-semibold">{label}<span className="mb-1 block text-xs font-normal text-[#18352a]/60">{guidance}</span><Input required type="number" min="0" step="0.01" value={String(pickupForm.data[key as 'layak_kg' | 'kurang_layak_kg' | 'tidak_layak_kg'])} onChange={(e) => pickupForm.setData(key as 'layak_kg', e.target.value)} placeholder="0.00" />{pickupForm.errors[key as 'layak_kg'] && <p className="mt-1 text-sm text-red-600">{pickupForm.errors[key as 'layak_kg']}</p>}</label>)}
+                                    <p className="text-sm">Total: <strong>{(['layak_kg','kurang_layak_kg','tidak_layak_kg'] as const).reduce((sum, key) => sum + Number(pickupForm.data[key] || 0), 0).toLocaleString('id-ID')} kg</strong></p>
+                                </div>
+                                <div><Label htmlFor="refusal_reason">Alasan jika total 0 kg</Label><textarea id="refusal_reason" value={pickupForm.data.refusal_reason} onChange={(e) => pickupForm.setData('refusal_reason', e.target.value)} className="mt-1 min-h-20 w-full rounded-xl border border-[#18352a]/15 bg-white px-3 py-2" placeholder="Contoh: material sudah diambil pihak lain" />{pickupForm.errors.refusal_reason && <p className="mt-1 text-sm text-red-600">{pickupForm.errors.refusal_reason}</p>}</div>
+                                <div><Label htmlFor="rejection-photo">Foto kondisi jika total 0 kg</Label><Input id="rejection-photo" type="file" accept="image/jpeg,image/jpg,image/png" className="mt-1 min-h-11" onChange={(e) => pickupForm.setData('rejection_photo', e.target.files?.[0] ?? null)} />{pickupForm.errors.rejection_photo && <p className="mt-1 text-sm text-red-600">{pickupForm.errors.rejection_photo}</p>}</div>
+                                {pickupError && <p role="alert" className="text-sm text-red-600">{pickupError}</p>}
+                                <div className="flex justify-end gap-2"><Button type="button" variant="ghost" onClick={() => setSelectedPickup(null)} disabled={pickupForm.processing}>Batal</Button><Button type="button" onClick={submitPickupCheckin} disabled={pickupForm.processing} className="bg-[#2f6848] text-white">{pickupForm.processing ? 'Menyimpan…' : 'Simpan check-in'}</Button></div>
+                            </div>
+                        </Card>
+                    </div>
+                )}
 
                 {/* Check-in modal */}
                 {selectedTask && (

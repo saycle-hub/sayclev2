@@ -103,6 +103,25 @@ class OfficerController extends Controller
         return redirect()->route('officer.dashboard')->with('success', 'Check-in berhasil.');
     }
 
+    public function checkinPickup(Request $request, Pickup $pickup, \App\Services\PickupCheckinService $service): RedirectResponse
+    {
+        $data = $request->validate([
+            'actual_total_kg' => 'required|numeric|min:0',
+            'grades' => 'required_without:supplier_rejected|array',
+            'grades.*.grade' => 'required_with:grades|string',
+            'grades.*.kg' => 'required_with:grades|numeric|gt:0',
+            'supplier_rejected' => 'nullable|boolean',
+            'refusal_reason' => 'required_if:supplier_rejected,true|nullable|string',
+            'photo' => 'required|image|mimes:jpeg,jpg,png|max:5120',
+            'rejection_photo' => 'required_if:supplier_rejected,true|nullable|image|mimes:jpeg,jpg,png|max:5120',
+            'checkin_lat' => 'required|numeric|between:-90,90',
+            'checkin_lng' => 'required|numeric|between:-180,180',
+        ]);
+        abort_if((int) $pickup->officer_id !== (int) $request->user()->id, 403);
+        $service->complete($pickup, $data);
+        return back();
+    }
+
     private function haversineDistance(float $lat1, float $lng1, float $lat2, float $lng2): float
     {
         $earthRadius = 6371000; // meters

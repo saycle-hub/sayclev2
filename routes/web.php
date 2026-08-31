@@ -63,7 +63,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('allocation/{grade}', [AllocationController::class, 'show'])->where('grade', 'Layak|Kurang Layak|Tidak Layak')->name('allocation.show');
 
         // Route optimization (Fase 5).
-        Route::get('routes', [RouteController::class, 'index'])->name('routes.index');
+         Route::get('routes', [RouteController::class, 'index'])->name('routes.index');
+         Route::get('provenance', [App\Http\Controllers\Admin\SupplierProvenanceController::class, 'index'])->name('provenance.index');
+        Route::get('pickups/{pickup}/photo', [App\Http\Controllers\Admin\SupplierProvenanceController::class, 'photo'])->name('pickups.photo');
         Route::post('routes/optimize', [RouteController::class, 'optimize'])->name('routes.optimize');
         Route::get('routes/{vehicle}', [RouteController::class, 'show'])->name('routes.show');
         Route::post('routes/{vehicle}/assign', [RouteController::class, 'assign'])->name('routes.assign');
@@ -90,6 +92,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('dashboard', [App\Http\Controllers\OfficerController::class, 'dashboard'])->name('dashboard');
         Route::get('workload', [App\Http\Controllers\OfficerController::class, 'dashboard'])->name('workload');
         Route::post('tasks/{task}/checkin', [App\Http\Controllers\OfficerController::class, 'checkin'])->name('tasks.checkin');
+        Route::post('pickups/{pickup}/checkin', [App\Http\Controllers\OfficerController::class, 'checkinPickup'])->name('pickups.checkin');
     });
 
     // Partner self-service portal (Fase 7).

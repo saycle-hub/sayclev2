@@ -16,6 +16,8 @@ return [
         'lng' => env('SAYCLE_DEPOT_LNG', 110.4203),
     ],
 
+    'pickup_gps_tolerance_m' => env('SAYCLE_PICKUP_GPS_TOLERANCE_M', 50),
+
     /*
     |--------------------------------------------------------------------------
     | OSRM routing service
