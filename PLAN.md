@@ -255,13 +255,13 @@ Untuk setiap grade, dalam periode pengiriman:
 
 ### Tasks
 
-- [ ] Dashboard admin: stok per grade, surplus/defisit, allocation tier, route/task, total Mitra, pendapatan, pengeluaran.
-- [ ] Statistik sampah terolah dari receipt/delivery nyata.
-- [ ] Statistik emisi hanya setelah formula, unit, baseline, dan sumber disepakati; tampilkan metodologi.
-- [ ] Dashboard Mitra: schedule, delivery status, allocation, invoice/payment due.
-- [ ] Audit data-access lintas role.
-- [ ] Tambah test end-to-end: intake → pickup → classify → warehouse → allocate → delivery → bill → payment/stat.
-- [ ] Jalankan test suite, static lint, migration fresh, dan scenario reconciliation sebelum pilot.
+- [x] Dashboard admin: stok per grade, surplus/defisit, allocation tier, route/task, total Mitra, pendapatan, pengeluaran.
+- [x] Statistik sampah terolah dari receipt/delivery nyata.
+- [ ] Statistik emisi hanya setelah formula, unit, baseline, dan sumber disepakati; tampilkan metodologi. *(digate D8 — butuh keputusan owner: formula, baseline, sumber data; belum disepakati)*
+- [x] Dashboard Mitra: schedule, delivery status, allocation, invoice/payment due.
+- [x] Audit data-access lintas role.
+- [x] Tambah test end-to-end: intake → pickup → classify → warehouse → allocate → delivery → bill → payment/stat.
+- [x] Jalankan test suite, static lint, migration fresh, dan scenario reconciliation sebelum pilot. *(lint = pint pada file fase 8; repo belum punya pint config global)*
 
 ### Exit gate
 

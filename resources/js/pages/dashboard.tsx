@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link } from '@inertiajs/react';
-import { ArrowRight, Banknote, Package, PackageCheck, Users } from 'lucide-react';
+import { ArrowRight, Banknote, Package, PackageCheck, ReceiptText, TrendingDown, Truck, Users } from 'lucide-react';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Dasbor', href: '/dashboard' }];
@@ -28,6 +28,10 @@ interface DashboardProps {
         total_stock_kg: number;
         active_partners: number;
         estimated_revenue: number;
+        realized_pendapatan: number;
+        realized_pengeluaran: number;
+        realized_margin: number;
+        active_pickup_tasks: number;
     };
 }
 
@@ -142,6 +146,36 @@ export default function Dashboard({ stock, trend, recentEntries, stats }: Dashbo
                         />
                     </div>
                 </div>
+
+                {/* Realisasi finansial dari snapshot financial lines (Fase 8). */}
+                <section aria-labelledby="realized-heading" className="rounded-2xl border border-[#2f6848]/15 bg-white p-5">
+                    <div className="flex flex-wrap items-baseline justify-between gap-3">
+                        <div>
+                            <h2 id="realized-heading" className="text-base font-semibold text-[#18352a]">
+                                Realisasi finansial
+                            </h2>
+                            <p className="text-sm text-[#18352a]/70">Dari tagihan &amp; pembayaran tercatat (harga snapshot saat transaksi).</p>
+                        </div>
+                        <Link
+                            href="/stats"
+                            className="inline-flex items-center gap-1 text-sm font-medium text-[#2f6848] underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-[#e88c12] focus-visible:outline-none"
+                        >
+                            Lihat statistik
+                            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                        </Link>
+                    </div>
+                    <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                        <StatCard icon={ReceiptText} label="Pendapatan tercatat" value={formatRupiah(stats.realized_pendapatan)} hint="Tagihan mitra" />
+                        <StatCard icon={TrendingDown} label="Pengeluaran tercatat" value={formatRupiah(stats.realized_pengeluaran)} hint="Pembayaran pemasok" />
+                        <StatCard
+                            icon={Banknote}
+                            label="Margin tercatat"
+                            value={formatRupiah(stats.realized_margin)}
+                            hint="Pendapatan − pengeluaran"
+                        />
+                        <StatCard icon={Truck} label="Tugas pickup aktif" value={String(stats.active_pickup_tasks)} hint="Planned / assigned / berjalan" />
+                    </div>
+                </section>
 
                 <section aria-labelledby="recent-heading" className="rounded-2xl border border-[#2f6848]/15 bg-white p-5">
                     <div className="mb-4 flex items-center justify-between gap-3">

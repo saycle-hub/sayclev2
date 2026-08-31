@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\FinancialLine;
 use App\Models\Partner;
+use App\Models\Pickup;
 use App\Models\Price;
 use App\Models\Stock;
 use App\Models\WarehouseMutation;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -107,6 +110,11 @@ class StockController extends Controller
         $totalStock = $stock->sum('total_kg');
         $estimatedRevenue = $stock->sum(fn (array $row) => $row['total_kg'] * (float) ($prices[$row['grade']]->sell_price ?? 0));
 
+        // Realized figures from snapshot financial lines (Fase 8 reconciliation),
+        // plus active pickup workload for dispatch visibility.
+        $realizedPengeluaran = (float) FinancialLine::query()->where('type', 'supplier_payment')->sum('amount');
+        $realizedPendapatan = (float) FinancialLine::query()->where('type', 'partner_invoice')->sum('amount');
+
         return Inertia::render('dashboard', [
             'stock' => $stock,
             'trend' => $this->trend(),
@@ -115,14 +123,18 @@ class StockController extends Controller
                 'total_stock_kg' => round($totalStock, 2),
                 'active_partners' => Partner::query()->count(),
                 'estimated_revenue' => round($estimatedRevenue, 2),
+                'realized_pendapatan' => round($realizedPendapatan, 2),
+                'realized_pengeluaran' => round($realizedPengeluaran, 2),
+                'realized_margin' => round($realizedPendapatan - $realizedPengeluaran, 2),
+                'active_pickup_tasks' => Pickup::query()->whereIn('status', ['planned', 'assigned', 'in_progress'])->count(),
             ],
         ]);
     }
 
     /**
-     * @return \Illuminate\Support\Collection<string, float>
+     * @return Collection<string, float>
      */
-    private function totalsPerGrade(): \Illuminate\Support\Collection
+    private function totalsPerGrade(): Collection
     {
         return WarehouseMutation::query()
             ->select('grade')
@@ -132,9 +144,9 @@ class StockController extends Controller
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, array{date: string, total_kg: float}>
+     * @return Collection<int, array{date: string, total_kg: float}>
      */
-    private function trend(): \Illuminate\Support\Collection
+    private function trend(): Collection
     {
         $rows = WarehouseMutation::query()
             ->selectRaw('DATE(occurred_at) as date')

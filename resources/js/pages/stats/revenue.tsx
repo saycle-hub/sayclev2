@@ -22,7 +22,8 @@ const breadcrumbs: BreadcrumbItem[] = [
 export interface RevenueRow {
     id: number;
     tanggal: string | null;
-    supplier: string;
+    jenis: string;
+    pihak: string;
     grade: string;
     kg: number;
     pengeluaran: number;
@@ -57,7 +58,7 @@ export default function StatsRevenue({ transactions, totals }: Props) {
                 <div>
                     <h1 className="text-2xl font-semibold tracking-tight text-[#18352a]">Pendapatan</h1>
                     <p className="mt-1 text-sm text-[#18352a]/70">
-                        Pendapatan vs pengeluaran per transaksi penimbangan (maks 200 terakhir).
+                        Setiap baris = satu financial line dengan harga snapshot (maks 200 terakhir).
                     </p>
                 </div>
 
@@ -76,7 +77,8 @@ export default function StatsRevenue({ transactions, totals }: Props) {
                                 <TableHeader>
                                     <TableRow className="bg-[#f4f3ed] hover:bg-[#f4f3ed]">
                                         <TableHead>Tanggal</TableHead>
-                                        <TableHead>Pemasok</TableHead>
+                                        <TableHead>Jenis</TableHead>
+                                        <TableHead>Pihak</TableHead>
                                         <TableHead>Grade</TableHead>
                                         <TableHead>Kg</TableHead>
                                         <TableHead>Pengeluaran</TableHead>
@@ -88,7 +90,8 @@ export default function StatsRevenue({ transactions, totals }: Props) {
                                     {transactions.map((t) => (
                                         <TableRow key={t.id}>
                                             <TableCell className="whitespace-nowrap text-[#18352a]">{formatDate(t.tanggal)}</TableCell>
-                                            <TableCell className="max-w-40 truncate text-[#18352a]/70">{t.supplier}</TableCell>
+                                            <TableCell className="whitespace-nowrap text-[#18352a]/70">{t.jenis}</TableCell>
+                                            <TableCell className="max-w-40 truncate text-[#18352a]/70">{t.pihak}</TableCell>
                                             <TableCell><GradeBadge grade={t.grade} /></TableCell>
                                             <TableCell className="tabular-nums text-[#18352a]/70">{formatKg(t.kg)}</TableCell>
                                             <TableCell className="tabular-nums text-[#18352a]/70">{formatRupiah(t.pengeluaran)}</TableCell>
