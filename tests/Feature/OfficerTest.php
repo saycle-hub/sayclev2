@@ -2,12 +2,12 @@
 
 namespace Tests\Feature;
 
-use App\Models\Partner;
+use App\Models\Contract;
 use App\Models\Delivery;
 use App\Models\DeliveryTrip;
-use App\Models\Contract;
-use App\Models\PickupTask;
+use App\Models\Partner;
 use App\Models\Pickup;
+use App\Models\PickupTask;
 use App\Models\Sale;
 use App\Models\SupplierReport;
 use App\Models\User;
@@ -43,7 +43,7 @@ class OfficerTest extends TestCase
 
         $sale = (new Sale)->forceFill([
             'partner_id' => $partner->id,
-            'public_id' => 'TEST-' . now()->format('YmdHis') . '-' . bin2hex(random_bytes(2)),
+            'public_id' => 'TEST-'.now()->format('YmdHis').'-'.bin2hex(random_bytes(2)),
             'contact_name' => 'Test Supplier',
             'phone' => '081234567890',
             'address' => 'Test Address',
@@ -256,5 +256,24 @@ class OfficerTest extends TestCase
         ]);
 
         $response->assertSessionHasErrors('task');
+    }
+
+    public function test_officer_workload_routes_render_dashboard_and_are_role_gated(): void
+    {
+        // PLAN Fase 3: 'Ganti route tasks coming-soon dengan workload nyata'.
+        // Sidebar links /officer/tasks, /officer/routes, /officer/weighing must
+        // render the canonical workload dashboard instead of 404ing.
+        $officer = $this->createOfficer();
+
+        foreach (['/officer/tasks', '/officer/routes', '/officer/weighing'] as $uri) {
+            $this->actingAs($officer)->get($uri)->assertOk()
+                ->assertInertia(fn ($page) => $page->component('officer/dashboard'));
+        }
+
+        // actingAs persists on the test case; reset to guest before the
+        // unauthenticated check.
+        $this->actingAsGuest()->get('/officer/tasks')->assertRedirect('/login');
+        $this->actingAs(User::factory()->create(['role' => 'admin']))->get('/officer/tasks')->assertForbidden();
+        $this->actingAs(User::factory()->create(['role' => 'partner']))->get('/officer/weighing')->assertForbidden();
     }
 }
