@@ -10,8 +10,12 @@ class RoleMiddleware
 {
     public function handle(Request $request, Closure $next, string ...$roles): Response
     {
-        $role = $request->user()?->role ?? 'admin';
-        abort_unless($request->user() && in_array($role, $roles, true), 403);
+        // Fail-closed: a missing role must never fall through to admin.
+        // (The old default-to-admin here defeated the middleware for any
+        // user whose role column was null.)
+        $role = $request->user()?->role;
+        abort_unless($role !== null && in_array($role, $roles, true), 403);
+
         return $next($request);
     }
 }

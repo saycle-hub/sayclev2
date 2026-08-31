@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Delivery;
 use App\Models\DeliveryTrip;
+use App\Models\DeliveryTripLine;
 use App\Models\FinancialLine;
 use App\Models\Price;
 use App\Models\Reservation;
@@ -28,7 +29,7 @@ class DeliveryCompletionService
         try {
             $staged = $data['photo']->store('delivery-proof', $disk);
 
-            return DB::transaction(function () use ($trip, $data, $staged, $disk) {
+            return DB::transaction(function () use ($trip, $data, $staged) {
                 $trip = DeliveryTrip::whereKey($trip->id)->lockForUpdate()->with(['lines.deliveryLine.reservation.allocation.contract', 'delivery'])->firstOrFail();
                 abort_unless((int) $trip->officer_id === (int) auth()->id(), 403, 'Trip is not assigned to this officer.');
                 abort_if(in_array($trip->status, ['delivered', 'cancelled'], true), 422, 'Trip already completed.');
@@ -62,14 +63,14 @@ class DeliveryCompletionService
                     // same lot through two different reservations.
                     $exists = WarehouseMutation::query()
                         ->where('type', 'stock_out')
-                        ->where('reference_type', \App\Models\DeliveryTripLine::class)
+                        ->where('reference_type', DeliveryTripLine::class)
                         ->where('reference_id', $tripLine->id)
                         ->exists();
                     if (! $exists) {
                         WarehouseMutation::create([
                             'classification_lot_id' => $reservation->classification_lot_id,
                             'type' => 'stock_out',
-                            'reference_type' => \App\Models\DeliveryTripLine::class,
+                            'reference_type' => DeliveryTripLine::class,
                             'reference_id' => $tripLine->id,
                             'grade' => $line->grade,
                             'intended_use' => $line->intended_use,
@@ -81,7 +82,7 @@ class DeliveryCompletionService
                     }
 
                     // Reservation lifecycle: fulfilled when fully consumed.
-                    $consumed = (float) \App\Models\DeliveryTripLine::query()
+                    $consumed = (float) DeliveryTripLine::query()
                         ->whereHas('trip', fn ($q) => $q->whereNotIn('status', ['cancelled']))
                         ->whereHas('deliveryLine', fn ($q) => $q->where('reservation_id', $reservation->id))
                         ->sum('planned_kg');
@@ -140,10 +141,16 @@ class DeliveryCompletionService
     public function markPaid(FinancialLine $invoice): FinancialLine
     {
         abort_unless($invoice->type === 'partner_invoice', 422, 'Only partner invoices can be marked paid.');
-        abort_if($invoice->status === 'paid', 422, 'Invoice already paid.');
 
-        $invoice->update(['status' => 'paid', 'paid_at' => now()]);
+        // Re-check under a row lock so two concurrent pay requests cannot
+        // both observe 'issued' and record the payment twice.
+        return DB::transaction(function () use ($invoice) {
+            $invoice = FinancialLine::whereKey($invoice->id)->lockForUpdate()->firstOrFail();
+            abort_if($invoice->status === 'paid', 422, 'Invoice already paid.');
 
-        return $invoice;
+            $invoice->update(['status' => 'paid', 'paid_at' => now()]);
+
+            return $invoice;
+        });
     }
 }

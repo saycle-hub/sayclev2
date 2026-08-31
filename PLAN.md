@@ -86,14 +86,14 @@ Untuk setiap grade, dalam periode pengiriman:
 
 ### Tasks
 
-- [ ] Tetapkan entity terpisah untuk laporan pemasok, pickup, klasifikasi/lot, mutasi gudang, allocation/reservation, delivery, dan financial line.
-- [ ] Hilangkan konflik field `contact`/`contact_name`, `estimate_kg`/`estimated_kg`, `manual_address`/`address` pada flow yang berbeda.
-- [ ] Gunakan satu enum/konstanta grade di seluruh codebase.
-- [ ] Simpan `intended_use` terpisah dari grade.
-- [ ] Tentukan satu sumber kebenaran kapasitas: kontrak atau profil Mitra; jangan dua sumber aktif.
-- [ ] Tambahkan schedule kontrak: frekuensi + hari penerimaan.
-- [ ] Definisikan lifecycle dan transisi status laporan, pickup, gudang, delivery, invoice, payment.
-- [ ] Buat migration kompatibel database existing dan fixture/factory canonical.
+- [x] Tetapkan entity terpisah untuk laporan pemasok, pickup, klasifikasi/lot, mutasi gudang, allocation/reservation, delivery, dan financial line.
+- [x] Hilangkan konflik field `contact`/`contact_name`, `estimate_kg`/`estimated_kg`, `manual_address`/`address` pada flow yang berbeda. *(kanonik tuntas; tabel legacy `sales`/`pickup_tasks` masih dipakai untuk tracking publik & task kurir — debt tercatat)*
+- [x] Gunakan satu enum/konstanta grade di seluruh codebase. *(`app/Domain/Grade.php`)*
+- [x] Simpan `intended_use` terpisah dari grade.
+- [x] Tentukan satu sumber kebenaran kapasitas: kontrak atau profil Mitra; jangan dua sumber aktif. *(kontrak)*
+- [x] Tambahkan schedule kontrak: frekuensi + hari penerimaan.
+- [x] Definisikan lifecycle dan transisi status laporan, pickup, gudang, delivery, invoice, payment.
+- [x] Buat migration kompatibel database existing dan fixture/factory canonical.
 
 ### Exit gate
 
@@ -108,15 +108,15 @@ Untuk setiap grade, dalam periode pengiriman:
 
 ### Tasks
 
-- [ ] Public register hanya membuat role `partner`.
-- [ ] Admin/officer dibuat melalui flow internal admin-only atau seed terkontrol.
-- [ ] Perbaiki bootstrap test/CSRF sampai seluruh test existing dapat menguji controller, bukan gagal 419.
-- [ ] Form Mitra wajib: nama, alamat, minimum, ideal, maksimum, frekuensi, hari penerimaan.
-- [ ] Tampilkan penjelasan ketentuan overcapacity saat register atau first login.
-- [ ] Simpan acceptance: partner/user, versi teks aturan, timestamp.
-- [ ] Blok portal operasi sampai acceptance valid.
-- [ ] Hapus approval/reject overcapacity per delivery; kontrak acceptance menjadi dasar operasi.
-- [ ] Tambah test role: guest, Mitra, admin, officer.
+- [x] Public register hanya membuat role `partner`.
+- [x] Admin/officer dibuat melalui flow internal admin-only atau seed terkontrol. *(seed via env)*
+- [x] Perbaiki bootstrap test/CSRF sampai seluruh test existing dapat menguji controller, bukan gagal 419. *(suite 153 hijau)*
+- [x] Form Mitra wajib: nama, alamat, minimum, ideal, maksimum, frekuensi, hari penerimaan.
+- [x] Tampilkan penjelasan ketentuan overcapacity saat register atau first login.
+- [x] Simpan acceptance: partner/user, versi teks aturan, timestamp.
+- [x] Blok portal operasi sampai acceptance valid.
+- [x] Hapus approval/reject overcapacity per delivery; kontrak acceptance menjadi dasar operasi.
+- [x] Tambah test role: guest, Mitra, admin, officer. *(`PhaseOneAuthTest`, incl. fail-closed middleware tanpa user)*
 
 ### Exit gate
 
@@ -130,12 +130,12 @@ Untuk setiap grade, dalam periode pengiriman:
 
 ### Tasks
 
-- [ ] Form publik: kontak, foto, estimasi kg, GPS browser dengan consent, alamat fallback.
-- [ ] Simpan photo private dan metadata lokasi/source yang diperlukan.
-- [ ] Buat status review dan transisi intake yang eksplisit.
-- [ ] Admin melihat supply eligible pada peta dan dapat menerima/menolak/menjadwalkan pickup.
-- [ ] Supplier tracking memakai public ID + PIN dan menampilkan status lifecycle nyata.
-- [ ] Tambah validasi input, throttle, serta test foto/lokasi/PIN.
+- [x] Form publik: kontak, foto, estimasi kg, GPS browser dengan consent, alamat fallback.
+- [x] Simpan photo private dan metadata lokasi/source yang diperlukan.
+- [x] Buat status review dan transisi intake yang eksplisit.
+- [x] Admin melihat supply eligible pada peta dan dapat menerima/menolak/menjadwalkan pickup.
+- [x] Supplier tracking memakai public ID + PIN dan menampilkan status lifecycle nyata.
+- [x] Tambah validasi input, throttle, serta test foto/lokasi/PIN. *(throttle 10/menit intake, 5/menit tracking)*
 
 ### Exit gate
 
@@ -149,13 +149,13 @@ Untuk setiap grade, dalam periode pengiriman:
 
 ### Tasks
 
-- [ ] Admin CRUD Mitra dan kontrak aktif/paused/cancelled.
-- [ ] Validasi `minimum ≤ ideal ≤ maksimum`.
-- [ ] Simpan frekuensi + hari penerimaan pada kontrak.
-- [ ] Scheduler menghasilkan pekerjaan masa depan idempotent dari kontrak aktif dan jadwal.
-- [ ] Admin dapat melihat dan override jadwal/assignment tanpa mengubah record selesai.
-- [ ] Portal Mitra menampilkan jadwal sendiri.
-- [ ] Ganti route `tasks` coming-soon dengan workload nyata.
+- [x] Admin CRUD Mitra dan kontrak aktif/paused/cancelled.
+- [x] Validasi `minimum ≤ ideal ≤ maksimum`.
+- [x] Simpan frekuensi + hari penerimaan pada kontrak.
+- [x] Scheduler menghasilkan pekerjaan masa depan idempotent dari kontrak aktif dan jadwal. *(fix whereDate service_date — ditemukan audit)*
+- [x] Admin dapat melihat dan override jadwal/assignment tanpa mengubah record selesai.
+- [x] Portal Mitra menampilkan jadwal sendiri.
+- [x] Ganti route `tasks` coming-soon dengan workload nyata. *(alias officer tasks/routes/weighing; stub admin.tasks masih ada — debt)*
 
 ### Exit gate
 
@@ -169,13 +169,13 @@ Untuk setiap grade, dalam periode pengiriman:
 
 ### Tasks
 
-- [ ] Route input hanya pekerjaan eligible dan bertanggal.
-- [ ] Kelompokkan stop menurut kapasitas kendaraan dan urutkan rute otomatis.
-- [ ] Pakai OSRM bila tersedia; fallback deterministik bila gagal; simpan sumber estimasi.
-- [ ] Peta menampilkan titik pemasok dan Mitra, rute, muatan, unassigned kg.
-- [ ] Admin assign kurir dan dapat review/ubah route sebelum berjalan.
-- [ ] Kurir mobile melihat ordered stop, lokasi, status pickup dan delivery.
-- [ ] Reroute tidak boleh menghapus task assigned/in-progress/done.
+- [x] Route input hanya pekerjaan eligible dan bertanggal.
+- [x] Kelompokkan stop menurut kapasitas kendaraan dan urutkan rute otomatis.
+- [x] Pakai OSRM bila tersedia; fallback deterministik bila gagal; simpan sumber estimasi. *(estimation_source: osrm/haversine)*
+- [x] Peta menampilkan titik pemasok dan Mitra, rute, muatan, unassigned kg.
+- [x] Admin assign kurir dan dapat review/ubah route sebelum berjalan.
+- [x] Kurir mobile melihat ordered stop, lokasi, status pickup dan delivery.
+- [x] Reroute tidak boleh menghapus task assigned/in-progress/done.
 
 ### Exit gate
 

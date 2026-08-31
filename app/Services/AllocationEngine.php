@@ -350,10 +350,14 @@ class AllocationEngine
     {
         $remaining = $needed;
 
+        // Lock the lot rows for the rest of the run transaction: two
+        // concurrent runs serialize here instead of both reading the same
+        // lotRemaining() and double-reserving the same kg.
         $lots = ClassificationLot::query()
             ->where('grade', $allocation->grade)
             ->orderBy('classified_at')
             ->orderBy('id')
+            ->lockForUpdate()
             ->get();
 
         foreach ($lots as $lot) {

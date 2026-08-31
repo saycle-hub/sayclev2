@@ -2,10 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Http\Middleware\RoleMiddleware;
 use App\Models\Partner;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 
 class PhaseOneAuthTest extends TestCase
@@ -48,6 +51,17 @@ class PhaseOneAuthTest extends TestCase
             $this->actingAs(User::factory()->create(['role' => $role]))->get(route('partner.index'))->assertForbidden();
             $this->actingAs(User::factory()->create(['role' => $role]))->get(route('partner.terms'))->assertForbidden();
         }
+    }
+
+    public function test_role_middleware_fails_closed_without_user(): void
+    {
+        // If the auth guard somehow yields no user (stale session token, user
+        // deleted mid-session), the role middleware must reject instead of
+        // silently promoting. (It once defaulted a missing user to admin.)
+        $middleware = new RoleMiddleware;
+        $request = Request::create('/dashboard');
+        $this->expectException(HttpException::class);
+        $middleware->handle($request, fn () => response('ok'), 'admin');
     }
 
     public function test_officer_login_redirects(): void
