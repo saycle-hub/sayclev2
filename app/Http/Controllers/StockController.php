@@ -116,7 +116,7 @@ class StockController extends Controller
         // Realized figures from snapshot financial lines (Fase 8 reconciliation),
         // plus active pickup workload and per-grade allocation status
         // (shared derivation with the allocation page).
-        $realizedPengeluaran = (float) FinancialLine::query()->where('type', 'supplier_payment')->sum('amount');
+        $realizedPengeluaran = (float) FinancialLine::query()->where('type', 'supplier_payment')->where('status', 'paid')->sum('amount');
         $realizedPendapatan = (float) FinancialLine::query()->where('type', 'partner_invoice')->sum('amount');
 
         $weekStart = Carbon::now()->startOfWeek()->toDateString();
