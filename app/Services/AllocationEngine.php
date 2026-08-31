@@ -209,7 +209,7 @@ class AllocationEngine
         ));
     }
 
-        /**
+    /**
      * Overcapacity pool across headrooms (ideal→max remainder), weighted by
      * ideal capacity (D2) but capped at each contract's own headroom so no
      * contract ever exceeds its maximum. Capped shares spill to uncapped
@@ -266,7 +266,7 @@ class AllocationEngine
             }
 
             $remaining = round($remaining - $passAllocated, 2);
-            if (!$capped) {
+            if (! $capped) {
                 break; // proportional distribution consumed the pool
             }
 
@@ -399,5 +399,40 @@ class AllocationEngine
     public function surplusPrice(string $grade): float
     {
         return (float) (Price::query()->where('grade', $grade)->value('buy_price') ?? 0);
+    }
+
+    /**
+     * Honest display status for a grade (same states the engine returns on
+     * run): no active contracts → 'Tanpa kontrak'; stock below minimum
+     * demand → 'Defisit'; up to ideal → 'Normal'; up to maxima → 'Surplus';
+     * beyond every contract maximum → 'Surplus ditahan' (held, D3).
+     */
+    public function gradeStatus(string $grade, float $stock): string
+    {
+        $demand = (float) Contract::query()->where('grade', $grade)->where('status', 'active')->sum('min_capacity_kg');
+        $activeContractCount = Contract::query()->where('grade', $grade)->where('status', 'active')->count();
+
+        if ($activeContractCount === 0) {
+            return 'Tanpa kontrak';
+        }
+
+        $ideal = (float) Contract::query()->where('grade', $grade)->where('status', 'active')->sum('ideal_capacity_kg');
+        $maxima = (float) Contract::query()->where('grade', $grade)->where('status', 'active')->sum('max_capacity_kg');
+
+        return match (true) {
+            $stock < $demand => 'Defisit',
+            $stock <= $ideal => 'Normal',
+            $stock <= $maxima => 'Surplus',
+            default => 'Surplus ditahan',
+        };
+    }
+
+    /**
+     * Held kg for display: physical stock not covered by an allocation row
+     * this week (excess beyond maxima, or allocation not yet run).
+     */
+    public function heldKg(string $grade, float $stock, float $allocated): float
+    {
+        return max(0.0, round($stock - $allocated, 2));
     }
 }

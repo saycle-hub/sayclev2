@@ -123,13 +123,16 @@ class EndToEndFlowTest extends TestCase
             ->where('kpi.total_pemasok', 1)
         );
 
-        // Admin dashboard reflects realized figures + stock position.
+        // Admin dashboard reflects realized figures + allocation status per grade.
         $this->actingAs($admin)->get('/dashboard')->assertOk()->assertInertia(fn ($page) => $page
             ->component('dashboard')
             ->where('stats.realized_pendapatan', 240000)
             ->where('stats.realized_pengeluaran', 180000)
             ->where('stats.realized_margin', 60000)
             ->where('stats.active_pickup_tasks', 0)
+            ->where('allocationStatus.0.grade', 'Layak')
+            ->where('allocationStatus.0.status', 'Defisit')
+            ->where('allocationStatus.0.stock_kg', 0)
         );
     }
 }

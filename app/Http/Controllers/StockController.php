@@ -2,14 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Allocation;
 use App\Models\FinancialLine;
 use App\Models\Partner;
 use App\Models\Pickup;
 use App\Models\Price;
 use App\Models\Stock;
 use App\Models\WarehouseMutation;
+use App\Services\AllocationEngine;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -111,14 +114,32 @@ class StockController extends Controller
         $estimatedRevenue = $stock->sum(fn (array $row) => $row['total_kg'] * (float) ($prices[$row['grade']]->sell_price ?? 0));
 
         // Realized figures from snapshot financial lines (Fase 8 reconciliation),
-        // plus active pickup workload for dispatch visibility.
+        // plus active pickup workload and per-grade allocation status
+        // (shared derivation with the allocation page).
         $realizedPengeluaran = (float) FinancialLine::query()->where('type', 'supplier_payment')->sum('amount');
         $realizedPendapatan = (float) FinancialLine::query()->where('type', 'partner_invoice')->sum('amount');
+
+        $weekStart = Carbon::now()->startOfWeek()->toDateString();
+        $hasRun = Allocation::whereDate('week_start', $weekStart)->exists();
+        $engine = app(AllocationEngine::class);
+        $allocationStatus = collect(Stock::GRADES)->map(function (string $grade) use ($engine, $weekStart, $hasRun) {
+            $stock = (float) ($totals[$grade] ?? 0);
+            $allocated = (float) Allocation::whereDate('week_start', $weekStart)->where('grade', $grade)->sum('allocated_kg');
+
+            return [
+                'grade' => $grade,
+                'stock_kg' => round($stock, 2),
+                'allocated_kg' => round($allocated, 2),
+                'status' => $hasRun ? $engine->gradeStatus($grade, $stock) : 'Belum dijalankan',
+                'held_kg' => $hasRun ? $engine->heldKg($grade, $stock, $allocated) : 0.0,
+            ];
+        })->values();
 
         return Inertia::render('dashboard', [
             'stock' => $stock,
             'trend' => $this->trend(),
             'recentEntries' => $recentEntries,
+            'allocationStatus' => $allocationStatus,
             'stats' => [
                 'total_stock_kg' => round($totalStock, 2),
                 'active_partners' => Partner::query()->count(),

@@ -24,6 +24,13 @@ interface DashboardProps {
     stock: GradeStock[];
     trend: TrendPoint[];
     recentEntries: StockEntry[];
+    allocationStatus: {
+        grade: string;
+        stock_kg: number;
+        allocated_kg: number;
+        status: string;
+        held_kg: number;
+    }[];
     stats: {
         total_stock_kg: number;
         active_partners: number;
@@ -45,7 +52,16 @@ function formatRupiah(value: number): string {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(value);
 }
 
-export default function Dashboard({ stock, trend, recentEntries, stats }: DashboardProps) {
+const statusStyles: Record<string, string> = {
+    'Belum dijalankan': 'bg-[#18352a]/10 text-[#18352a]/70',
+    'Tanpa kontrak': 'bg-[#18352a]/10 text-[#18352a]/70',
+    Defisit: 'bg-red-100 text-red-700',
+    Normal: 'bg-[#2f6848]/10 text-[#2f6848]',
+    Surplus: 'bg-[#e88c12]/15 text-[#8a5a10]',
+    'Surplus ditahan': 'bg-[#e88c12]/15 text-[#8a5a10]',
+};
+
+export default function Dashboard({ stock, trend, recentEntries, allocationStatus, stats }: DashboardProps) {
     const chartData = trend.map((t) => ({ ...t, label: new Date(t.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) }));
 
     return (
@@ -146,6 +162,45 @@ export default function Dashboard({ stock, trend, recentEntries, stats }: Dashbo
                         />
                     </div>
                 </div>
+
+                {/* Status alokasi per grade (Fase 8): sama dengan halaman alokasi. */}
+                <section aria-labelledby="allocation-heading" className="rounded-2xl border border-[#2f6848]/15 bg-white p-5">
+                    <div className="flex flex-wrap items-baseline justify-between gap-3">
+                        <div>
+                            <h2 id="allocation-heading" className="text-base font-semibold text-[#18352a]">
+                                Status alokasi minggu ini
+                            </h2>
+                            <p className="text-sm text-[#18352a]/70">Defisit / normal / surplus per grade terhadap kontrak aktif.</p>
+                        </div>
+                        <Link
+                            href="/allocation"
+                            className="inline-flex items-center gap-1 text-sm font-medium text-[#2f6848] underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-[#e88c12] focus-visible:outline-none"
+                        >
+                            Kelola alokasi
+                            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                        </Link>
+                    </div>
+                    <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                        {allocationStatus.map((row) => (
+                            <div key={row.grade} className="rounded-xl border border-[#2f6848]/10 bg-[#f4f3ed] p-4">
+                                <div className="flex items-center justify-between gap-2">
+                                    <GradeBadge grade={row.grade} />
+                                    <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${statusStyles[row.status] ?? statusStyles['Belum dijalankan']}`}>
+                                        {row.status}
+                                    </span>
+                                </div>
+                                <p className="mt-2 text-lg font-semibold text-[#18352a] tabular-nums">
+                                    {formatKg(row.stock_kg)}
+                                    <span className="ml-1 text-xs font-normal text-[#18352a]/60">stok</span>
+                                </p>
+                                <p className="text-xs text-[#18352a]/60 tabular-nums">
+                                    {formatKg(row.allocated_kg)} dialokasikan
+                                    {row.held_kg > 0 && <> · {formatKg(row.held_kg)} ditahan</>}
+                                </p>
+                            </div>
+                        ))}
+                    </div>
+                </section>
 
                 {/* Realisasi finansial dari snapshot financial lines (Fase 8). */}
                 <section aria-labelledby="realized-heading" className="rounded-2xl border border-[#2f6848]/15 bg-white p-5">

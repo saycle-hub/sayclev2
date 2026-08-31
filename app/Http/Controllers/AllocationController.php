@@ -13,9 +13,7 @@ use Inertia\Response;
 
 class AllocationController extends Controller
 {
-    public function __construct(private AllocationEngine $engine)
-    {
-    }
+    public function __construct(private AllocationEngine $engine) {}
 
     public function index(): Response
     {
@@ -33,22 +31,14 @@ class AllocationController extends Controller
 
             $allocated = (float) Allocation::whereDate('week_start', $weekStart)->where('grade', $grade)->sum('allocated_kg');
 
-            // Status is re-derived honestly for display: no active contracts →
-            // 'Tanpa kontrak'; the engine itself returns the same states on run.
+            // Status is re-derived honestly for display via the engine's shared
+            // helper: no active contracts → 'Tanpa kontrak'; the engine itself
+            // returns the same states on run.
             $status = 'Belum dijalankan';
             $held = 0.0;
             if ($hasRun) {
-                $activeContractCount = Contract::query()->where('grade', $grade)->where('status', 'active')->count();
-                $totalMax = (float) Contract::query()->where('grade', $grade)->where('status', 'active')->sum('max_capacity_kg');
-                $status = $activeContractCount === 0
-                    ? 'Tanpa kontrak'
-                    : match (true) {
-                        $stock < $demand => 'Defisit',
-                        $stock <= (float) Contract::query()->where('grade', $grade)->where('status', 'active')->sum('ideal_capacity_kg') => 'Normal',
-                        $stock > $totalMax => 'Surplus ditahan',
-                        default => 'Surplus',
-                    };
-                $held = max(0.0, round($stock - $allocated, 2));
+                $status = $this->engine->gradeStatus($grade, $stock);
+                $held = $this->engine->heldKg($grade, $stock, $allocated);
             }
 
             return [
@@ -104,5 +94,4 @@ class AllocationController extends Controller
             ]),
         ]);
     }
-
 }

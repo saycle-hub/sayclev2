@@ -210,15 +210,15 @@ Untuk setiap grade, dalam periode pengiriman:
 
 ### Tasks
 
-- [ ] Hitung available stock per grade dari ledger dan reservation aktif.
-- [ ] Implementasikan tier minimum → ideal → overcapacity sampai maksimum.
-- [ ] Terapkan fairness rule defisit setelah product decision disetujui.
-- [ ] Mark hanya `ideal → maksimum` sebagai overcapacity.
-- [ ] Berlakukan harga modal hanya pada allocation line overcapacity.
-- [ ] Redirect excess di atas maksimum ke tujuan grade yang sama tanpa downgrade grade.
-- [ ] Simpan excess yang belum punya tujuan eligible sebagai quantity terlihat; tidak boleh hilang diam-diam.
-- [ ] Reserve stock atomically saat allocation; rerun harus idempotent dan conserve kg.
-- [ ] Buat delivery candidate hanya dari allocation eligible + schedule Mitra.
+- [x] Hitung available stock per grade dari ledger dan reservation aktif.
+- [x] Implementasikan tier minimum → ideal → overcapacity sampai maksimum.
+- [x] Terapkan fairness rule defisit setelah product decision disetujui. *(D1: proporsional per minimum)*
+- [x] Mark hanya `ideal → maksimum` sebagai overcapacity.
+- [x] Berlakukan harga modal hanya pada allocation line overcapacity.
+- [x] Redirect excess di atas maksimum ke tujuan grade yang sama tanpa downgrade grade. *(disuperseide keputusan owner D3: excess ditahan di gudang & tampil sebagai held_kg, tanpa redirect)*
+- [x] Simpan excess yang belum punya tujuan eligible sebagai quantity terlihat; tidak boleh hilang diam-diam. *(D3: held_kg di engine + UI)*
+- [x] Reserve stock atomically saat allocation; rerun harus idempotent dan conserve kg.
+- [x] Buat delivery candidate hanya dari allocation eligible + schedule Mitra. *(diselesaikan di Fase 7 bersama DeliverySchedulingService)*
 
 ### Exit gate
 
