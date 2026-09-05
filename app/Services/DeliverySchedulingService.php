@@ -16,9 +16,7 @@ class DeliverySchedulingService
 {
     public function schedule(CarbonInterface $date): int
     {
-        $contracts = Contract::query()->where('status', 'active')->whereDate('start_date', '<=', $date)
-            ->where(fn ($q) => $q->whereNull('end_date')->orWhereDate('end_date', '>=', $date))->get()
-            ->filter(fn (Contract $c) => $this->recurs($c, $date));
+        $contracts = Contract::query()->get()->filter(fn (Contract $c) => $c->eligibleOn($date));
         $count = 0;
         foreach ($contracts->groupBy('partner_id') as $partnerId => $group) {
             $delivery = DB::transaction(function () use ($partnerId, $group, $date) {
@@ -109,16 +107,6 @@ class DeliverySchedulingService
 
             return $created;
         });
-    }
-
-    private function recurs(Contract $c, CarbonInterface $date): bool
-    {
-        return match ($c->frequency) {
-            'harian' => true,
-            'mingguan' => in_array(strtolower($date->englishDayOfWeek), array_map('strtolower', is_array($c->receiving_days) ? $c->receiving_days : []), true),
-            'bulanan' => $date->day === (int) $c->monthly_day && $c->monthly_day >= 1 && $c->monthly_day <= 28,
-            default => false,
-        };
     }
 
     public function assign(Delivery $delivery, ?int $vehicleId, ?int $officerId, array $lines): DeliveryTrip

@@ -3,9 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\Contract;
+use App\Models\DeliveryLine;
+use App\Models\DeliveryTripLine;
+use App\Models\FinancialLine;
 use App\Models\Partner;
+use App\Models\Reservation;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -74,14 +79,44 @@ class ContractController extends Controller
 
     private function transition(Contract $contract, string $status, string $message): RedirectResponse
     {
-        $contract->update(['status' => $status]);
+        DB::transaction(function () use ($contract, $status): void {
+            $contract = Contract::whereKey($contract->id)->lockForUpdate()->firstOrFail();
+            $reservationIds = Reservation::query()
+                ->whereHas('allocation', fn ($q) => $q->where('contract_id', $contract->id))
+                ->pluck('id');
+
+            $protectedLineIds = DeliveryTripLine::query()
+                ->whereHas('trip', fn ($q) => $q->whereNotIn('status', ['cancelled']))
+                ->whereHas('deliveryLine', fn ($q) => $q->whereIn('reservation_id', $reservationIds))
+                ->pluck('delivery_line_id');
+            $protectedReservations = DeliveryLine::whereIn('id', $protectedLineIds)->pluck('reservation_id');
+
+            Reservation::whereIn('id', $reservationIds)
+                ->whereIn('status', ['reserved', 'partially_delivered'])
+                ->whereNotIn('id', $protectedReservations)
+                ->update(['status' => 'released', 'released_at' => now()]);
+
+            DeliveryLine::query()
+                ->whereIn('reservation_id', $reservationIds)
+                ->whereNotIn('id', DeliveryTripLine::query()->pluck('delivery_line_id'))
+                ->delete();
+
+            $contract->update(['status' => $status]);
+        });
 
         return back()->with('success', $message);
     }
 
     private function delete(Contract $contract): RedirectResponse
     {
-        $contract->delete();
+        DB::transaction(function () use ($contract): void {
+            $contract = Contract::whereKey($contract->id)->lockForUpdate()->firstOrFail();
+            $used = DB::table('allocations')->where('contract_id', $contract->id)->exists()
+                || DB::table('delivery_contracts')->where('contract_id', $contract->id)->exists()
+                || FinancialLine::where('contract_id', $contract->id)->exists();
+            abort_if($used, 409, 'Contract has allocation, delivery lineage, or financial records and cannot be deleted.');
+            $contract->delete();
+        });
 
         return back()->with('success', 'Kontrak berhasil dihapus.');
     }
@@ -131,9 +166,12 @@ class ContractController extends Controller
         if ($frequency === 'harian') {
             return 'Setiap hari';
         }
-        if ($frequency === 'bulanan') return 'Tanggal '.$monthlyDay.' setiap bulan';
+        if ($frequency === 'bulanan') {
+            return 'Tanggal '.$monthlyDay.' setiap bulan';
+        }
 
         $labels = ['monday' => 'Senin', 'tuesday' => 'Selasa', 'wednesday' => 'Rabu', 'thursday' => 'Kamis', 'friday' => 'Jumat', 'saturday' => 'Sabtu', 'sunday' => 'Minggu'];
+
         return 'Setiap '.implode(', ', array_map(fn (string $day) => $labels[$day] ?? $day, $days ?? []));
     }
 }

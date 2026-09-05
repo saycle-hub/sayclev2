@@ -2,12 +2,16 @@
 
 namespace Tests\Feature;
 
+use App\Domain\Grade;
 use App\Models\Allocation;
 use App\Models\ClassificationLot;
 use App\Models\Contract;
 use App\Models\Partner;
-use App\Models\Price;
+use App\Models\Pickup;
+use App\Models\Reservation;
+use App\Models\SupplierReport;
 use App\Models\User;
+use App\Models\Vehicle;
 use App\Models\WarehouseMutation;
 use App\Services\AllocationEngine;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -55,21 +59,21 @@ class AllocationTest extends TestCase
      */
     private function addLot(string $grade, float $kg): ClassificationLot
     {
-        $report = \App\Models\SupplierReport::create([
+        $report = SupplierReport::create([
             'public_id' => uniqid('R'), 'contact_name' => 'Supplier', 'phone' => '1',
             'estimated_kg' => $kg, 'photo_path' => 'x.jpg', 'location_consent' => true,
             'latitude' => 0, 'longitude' => 0, 'manual_address' => 'x',
             'status' => 'picked_up', 'pin_hash' => 'x',
         ]);
-        $vehicle = \App\Models\Vehicle::create(['name' => 'V', 'capacity_kg' => 999999, 'is_active' => true]);
-        $pickup = \App\Models\Pickup::create([
+        $vehicle = Vehicle::create(['name' => 'V', 'capacity_kg' => 999999, 'is_active' => true]);
+        $pickup = Pickup::create([
             'supplier_report_id' => $report->id, 'vehicle_id' => $vehicle->id,
             'officer_id' => $this->admin()->id, 'status' => 'completed', 'estimated_kg' => $kg,
         ]);
         $lot = ClassificationLot::create([
             'pickup_id' => $pickup->id,
             'grade' => $grade,
-            'intended_use' => \App\Domain\Grade::INTENDED_USES[$grade],
+            'intended_use' => Grade::INTENDED_USES[$grade],
             'kg' => $kg,
             'classified_at' => now(),
             'classified_by' => $this->admin()->id,
@@ -178,7 +182,7 @@ class AllocationTest extends TestCase
         $first = Allocation::where('grade', 'Layak')->orderBy('id')->get();
         $this->assertSame(150.0, (float) $first->sum('allocated_kg'));
         // Every kg is bound to a physical reservation.
-        $this->assertSame(150.0, (float) \App\Models\Reservation::whereIn('allocation_id', $first->pluck('id'))->sum('reserved_kg'));
+        $this->assertSame(150.0, (float) Reservation::whereIn('allocation_id', $first->pluck('id'))->sum('reserved_kg'));
 
         // New stock arrives; rerun must keep committed rows and allocate only the new kg.
         $this->addLot('Layak', 100);
@@ -191,7 +195,7 @@ class AllocationTest extends TestCase
         // No double reservation: total reserved equals total allocated.
         $this->assertSame(
             (float) Allocation::where('grade', 'Layak')->sum('allocated_kg'),
-            (float) \App\Models\Reservation::whereIn('allocation_id', Allocation::where('grade', 'Layak')->pluck('id'))->sum('reserved_kg')
+            (float) Reservation::whereIn('allocation_id', Allocation::where('grade', 'Layak')->pluck('id'))->sum('reserved_kg')
         );
     }
 
@@ -296,7 +300,7 @@ class AllocationTest extends TestCase
         // Lot-less reservation backs the adjusted stock, conservation holds.
         $this->assertSame(
             150.0,
-            (float) \App\Models\Reservation::whereIn('allocation_id', Allocation::where('grade', 'Layak')->pluck('id'))->sum('reserved_kg')
+            (float) Reservation::whereIn('allocation_id', Allocation::where('grade', 'Layak')->pluck('id'))->sum('reserved_kg')
         );
     }
 
