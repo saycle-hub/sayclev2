@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Price;
 use App\Models\Stock;
 use App\Models\User;
+use App\Models\WarehouseMutation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -195,6 +196,35 @@ class StockManagementTest extends TestCase
             ->has('stock', 3)
             ->where('stats.total_stock_kg', 15)
             ->where('stats.estimated_revenue', 15000));
+    }
+
+    public function test_receipt_and_stock_out_net_to_zero_in_stock_displays(): void
+    {
+        $admin = $this->admin();
+
+        WarehouseMutation::create([
+            'type' => 'receipt',
+            'grade' => 'Layak',
+            'kg' => 120,
+            'performed_by' => $admin->id,
+            'occurred_at' => now(),
+        ]);
+        WarehouseMutation::create([
+            'type' => 'stock_out',
+            'grade' => 'Layak',
+            'kg' => 120,
+            'performed_by' => $admin->id,
+            'occurred_at' => now(),
+        ]);
+
+        $this->actingAs($admin)->get('/stock')->assertInertia(fn ($page) => $page
+            ->where('stock.0.total_kg', 0)
+            ->where('trend.0.total_kg', 0));
+
+        $this->actingAs($admin)->get('/dashboard')->assertInertia(fn ($page) => $page
+            ->where('stock.0.total_kg', 0)
+            ->where('trend.0.total_kg', 0)
+            ->where('stats.total_stock_kg', 0));
     }
 
     public function test_admin_module_pages_render(): void

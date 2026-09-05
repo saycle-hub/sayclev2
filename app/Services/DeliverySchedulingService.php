@@ -29,7 +29,7 @@ class DeliverySchedulingService
                     $d->contracts()->syncWithoutDetaching($group->pluck('id'));
                 }
 
-return $d;
+                return $d;
             });
             // Fase 6: turn reserved allocations into concrete delivery lines.
             $this->buildCandidateLines($delivery);
@@ -131,7 +131,8 @@ return $d;
             if ($match) {
                 return $match;
             }
-            if (in_array($delivery->status, ['assigned', 'in_transit', 'delivered', 'failed', 'cancelled'], true)) {
+            if (in_array($delivery->status, ['in_transit', 'delivered', 'failed', 'cancelled'], true)
+                || ($delivery->status === 'assigned' && ! $delivery->lines()->whereHas('reservation', fn ($q) => $q->where('status', 'partially_delivered'))->exists())) {
                 abort(422, 'Delivery lifecycle forbids new trip.');
             }
             if (! $vehicleId || ! $officerId) {
@@ -143,7 +144,7 @@ return $d;
             $pendingByReservation = [];
             $kg = 0;
             foreach ($lines as $id => $requested) {
-                $line = $delivery->lines()->whereKey($id)->lockForUpdate()->whereHas('reservation', fn ($q) => $q->where('status', 'reserved'))->firstOrFail();
+                $line = $delivery->lines()->whereKey($id)->lockForUpdate()->whereHas('reservation', fn ($q) => $q->whereIn('status', ['reserved', 'partially_delivered']))->firstOrFail();
                 $reservation = $line->reservation()->lockForUpdate()->firstOrFail();
                 $allocation = $reservation->allocation()->lockForUpdate()->firstOrFail();
                 if ((int) $allocation->partner_id !== (int) $delivery->partner_id || ! $delivery->contracts()->whereKey($allocation->contract_id)->exists()) {
@@ -178,13 +179,13 @@ return $d;
             foreach ($remaining as $id => $qty) {
                 $trip->lines()->create(['delivery_line_id' => $id, 'planned_kg' => $qty]);
             }
-            $total = (float) $delivery->lines()->whereHas('reservation', fn ($q) => $q->where('status', 'reserved'))->sum('kg');
+            $total = (float) $delivery->lines()->whereHas('reservation', fn ($q) => $q->whereIn('status', ['reserved', 'partially_delivered']))->sum('kg');
             $covered = (float) $delivery->trips()->whereNotIn('status', ['cancelled'])->with('lines')->get()->flatMap->lines->sum('planned_kg');
             if ($covered + 0.00001 >= $total) {
                 $delivery->update(['status' => 'assigned']);
             }
 
-return $trip;
+            return $trip;
         });
     }
 }

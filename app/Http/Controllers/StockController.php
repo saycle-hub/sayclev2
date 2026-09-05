@@ -159,7 +159,11 @@ class StockController extends Controller
     {
         return WarehouseMutation::query()
             ->select('grade')
-            ->selectRaw('SUM(kg) as total_kg')
+            ->selectRaw("SUM(CASE
+                WHEN type = 'receipt' THEN ABS(kg)
+                WHEN type = 'stock_out' THEN -ABS(kg)
+                ELSE kg
+            END) as total_kg")
             ->groupBy('grade')
             ->pluck('total_kg', 'grade');
     }
@@ -171,7 +175,11 @@ class StockController extends Controller
     {
         $rows = WarehouseMutation::query()
             ->selectRaw('DATE(occurred_at) as date')
-            ->selectRaw('SUM(kg) as net_kg')
+            ->selectRaw("SUM(CASE
+                WHEN type = 'receipt' THEN ABS(kg)
+                WHEN type = 'stock_out' THEN -ABS(kg)
+                ELSE kg
+            END) as net_kg")
             ->groupBy(DB::raw('DATE(occurred_at)'))
             ->orderBy('date')
             ->limit(30)
