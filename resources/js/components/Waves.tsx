@@ -57,7 +57,7 @@ class Noise {
     seed = Math.floor(seed);
     if (seed < 256) seed |= seed << 8;
     for (let i = 0; i < 256; i++) {
-      let v = i & 1 ? this.p[i] ^ (seed & 255) : this.p[i] ^ ((seed >> 8) & 255);
+      const v = i & 1 ? this.p[i] ^ (seed & 255) : this.p[i] ^ ((seed >> 8) & 255);
       this.perm[i] = this.perm[i + 256] = v;
       this.gradP[i] = this.gradP[i + 256] = this.grad3[v % 12];
     }
@@ -337,20 +337,6 @@ const Waves: React.FC<WavesProps> = ({
       setSize();
       setLines();
     }
-    function updateMouse(x: number, y: number) {
-      const mouse = mouseRef.current;
-      const b = boundingRef.current;
-      mouse.x = x - b.left;
-      mouse.y = y - b.top;
-      if (!mouse.set) {
-        mouse.sx = mouse.x;
-        mouse.sy = mouse.y;
-        mouse.lx = mouse.x;
-        mouse.ly = mouse.y;
-        mouse.set = true;
-      }
-    }
-
     setSize();
     setLines();
     if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) frameIdRef.current = requestAnimationFrame(tick);

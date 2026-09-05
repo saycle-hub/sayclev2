@@ -5,6 +5,14 @@
 
     RewriteEngine On
 
+    # Allow the service worker (served from /build/sw.js) to control
+    # the root scope — required for PWA installability + offline.
+    <IfModule mod_headers.c>
+        <FilesMatch "sw\.js$">
+            Header set Service-Worker-Allowed "/"
+        </FilesMatch>
+    </IfModule>
+
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
