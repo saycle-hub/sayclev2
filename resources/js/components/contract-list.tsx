@@ -200,7 +200,7 @@ function ContractRowActions({ contract }: { contract: ContractRow }) {
 export function ContractList({ contracts, partnerName, className }: { contracts: ContractRow[]; partnerName?: string; className?: string }) {
     if (contracts.length === 0) {
         return (
-            <div className="rounded-xl border border-dashed border-[#2f6848]/30 bg-[#f4f3ed] px-4 py-8 text-center text-sm text-[#18352a]/70">
+            <div className="rounded-xl border border-dashed border-[#2f6848]/30 bg-white px-4 py-8 text-center text-sm text-[#18352a]/70">
                 Belum ada kontrak. Tambahkan kontrak pertama untuk mengaktifkan mitra ini.
             </div>
         );

@@ -24,7 +24,7 @@ export default function StockAdjust() {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Penyesuaian Stok" />
-            <div className="flex h-full flex-1 flex-col gap-6 bg-[#f4f3ed] p-4 md:p-6">
+            <div className="flex h-full flex-1 flex-col gap-6 bg-white p-4 md:p-6">
                 <div>
                     <Link
                         href="/stock"

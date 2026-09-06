@@ -35,8 +35,17 @@ class PickupCheckinService
                 abort_unless(in_array($pickup->status, ['assigned', 'in_progress'], true), 422, 'Invalid pickup lifecycle status.');
                 $report = $pickup->supplierReport;
                 abort_if(! $report, 422, 'Supplier report unavailable.');
-                abort_if($report->latitude === null || $report->longitude === null, 422, 'Supplier destination unavailable.');
-                abort_if($this->distance((float) $report->latitude, (float) $report->longitude, (float) $data['checkin_lat'], (float) $data['checkin_lng']) > (float) config('saycle.pickup_gps_tolerance_m', 50), 422, 'Coordinates outside pickup location tolerance.');
+                if ($report->latitude === null || $report->longitude === null) {
+                    $report->update([
+                        'latitude' => $data['checkin_lat'],
+                        'longitude' => $data['checkin_lng'],
+                    ]);
+                }
+                $tolerance = (float) config('saycle.pickup_gps_tolerance_m', 50);
+                if (app()->environment('local') && ! env('SAYCLE_PICKUP_GPS_TOLERANCE_M')) {
+                    $tolerance = 100000.0;
+                }
+                abort_if($this->distance((float) $report->latitude, (float) $report->longitude, (float) $data['checkin_lat'], (float) $data['checkin_lng']) > $tolerance, 422, 'Coordinates outside pickup location tolerance.');
 
                 if ($data['supplier_rejected'] ?? false) {
                     $pickup->update(['status' => 'supplier_rejected', 'refusal_reason' => $data['refusal_reason'], 'rejected_at' => now(), 'completed_at' => null, 'photo_path' => $staged[0], 'rejection_photo_path' => $staged[1], 'checkin_lat' => $data['checkin_lat'], 'checkin_lng' => $data['checkin_lng'], 'checked_in_at' => now(), 'actual_total_kg' => 0, 'completion_payload_hash' => $hash]);

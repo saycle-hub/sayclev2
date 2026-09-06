@@ -1,58 +1,96 @@
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
-import { type NavItem } from '@/types';
+import { type NavGroup } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import { BarChart3, ClipboardList, FileText, HandCoins, Handshake, Layers, LayoutGrid, Package, Route, Scale, Tags, Truck, Users, Inbox } from 'lucide-react';
+import { BarChart3, ClipboardList, FileText, HandCoins, Handshake, Layers, LayoutGrid, Package, Route, Scale, Tags, Truck, Users, Inbox, UserCog } from 'lucide-react';
 import AppLogo from './app-logo';
 
-const navByRole: Record<string, { home: NavItem; items: NavItem[] }> = {
+const navByRole: Record<string, { homeUrl: string; groups: NavGroup[] }> = {
     admin: {
-        home: { title: 'Dasbor', url: '/dashboard', icon: LayoutGrid },
-        items: [
-            { title: 'Stok', url: '/stock', icon: Package },
-            { title: 'Laporan pemasok', url: '/supplier-reports', icon: Inbox },
-            { title: 'Mitra', url: '/partners', icon: Users },
-            { title: 'Kontrak', url: '/contracts', icon: Handshake },
-            { title: 'Alokasi', url: '/allocation', icon: Layers },
-            { title: 'Rute', url: '/routes', icon: Route },
-            { title: 'Kendaraan', url: '/vehicles', icon: Truck },
-            { title: 'Rute pengiriman', url: '/delivery-routes', icon: Truck },
-            { title: 'Provenance', url: '/provenance', icon: Layers },
-            { title: 'Harga', url: '/prices', icon: Tags },
-            { title: 'Statistik', url: '/stats', icon: BarChart3 },
+        homeUrl: '/dashboard',
+        groups: [
+            {
+                title: 'Utama',
+                items: [
+                    { title: 'Dasbor', url: '/dashboard', icon: LayoutGrid },
+                    { title: 'Statistik', url: '/stats', icon: BarChart3 },
+                ],
+            },
+            {
+                title: 'Logistik & Rute',
+                items: [
+                    { title: 'Rute Penjemputan', url: '/routes', icon: Route },
+                    { title: 'Rute Pengiriman', url: '/delivery-routes', icon: Truck },
+                    { title: 'Kendaraan', url: '/vehicles', icon: Truck },
+                ],
+            },
+            {
+                title: 'Stok & Alokasi',
+                items: [
+                    { title: 'Stok Gudang', url: '/stock', icon: Package },
+                    { title: 'Laporan Pemasok', url: '/supplier-reports', icon: Inbox },
+                    { title: 'Alokasi Stok', url: '/allocation', icon: Layers },
+                    { title: 'Asal-Usul Pasokan', url: '/provenance', icon: Layers },
+                ],
+            },
+            {
+                title: 'Mitra & Kontrak',
+                items: [
+                    { title: 'Mitra', url: '/partners', icon: Users },
+                    { title: 'Kontrak', url: '/contracts', icon: Handshake },
+                    { title: 'Harga Grade', url: '/prices', icon: Tags },
+                ],
+            },
+            {
+                title: 'Pengaturan',
+                items: [
+                    { title: 'Pengguna & Petugas', url: '/users', icon: UserCog },
+                ],
+            },
         ],
     },
     officer: {
-        home: { title: 'Beranda', url: '/officer', icon: LayoutGrid },
-        items: [
-            { title: 'Tugas', url: '/officer/tasks', icon: ClipboardList },
-            { title: 'Rute', url: '/officer/routes', icon: Route },
-            { title: 'Penimbangan', url: '/officer/weighing', icon: Scale },
+        homeUrl: '/officer',
+        groups: [
+            {
+                title: 'Petugas Lapangan',
+                items: [
+                    { title: 'Beranda', url: '/officer', icon: LayoutGrid },
+                    { title: 'Tugas', url: '/officer/tasks', icon: ClipboardList },
+                    { title: 'Rute Penjemputan', url: '/officer/routes', icon: Route },
+                    { title: 'Penimbangan', url: '/officer/weighing', icon: Scale },
+                ],
+            },
         ],
     },
     partner: {
-        home: { title: 'Beranda', url: '/partner', icon: LayoutGrid },
-        items: [
-            { title: 'Pengiriman', url: '/partner/deliveries', icon: Truck },
-            { title: 'Kontrak', url: '/partner/contract', icon: FileText },
-            { title: 'Tagihan', url: '/partner/billing', icon: HandCoins },
+        homeUrl: '/partner',
+        groups: [
+            {
+                title: 'Portal Mitra',
+                items: [
+                    { title: 'Beranda', url: '/partner', icon: LayoutGrid },
+                    { title: 'Pengiriman', url: '/partner/deliveries', icon: Truck },
+                    { title: 'Kontrak', url: '/partner/contract', icon: FileText },
+                    { title: 'Tagihan', url: '/partner/billing', icon: HandCoins },
+                ],
+            },
         ],
     },
 };
 
 export function AppSidebar() {
     const { auth } = usePage<{ auth: { user: { role: string } } }>().props;
-    const roleNav = navByRole[auth.user.role] ?? { home: { title: 'Beranda', url: '/dashboard', icon: LayoutGrid }, items: [] };
-    const mainNavItems = [roleNav.home, ...roleNav.items];
+    const roleNav = navByRole[auth.user.role] ?? { homeUrl: '/dashboard', groups: navByRole.admin.groups };
 
     return (
-        <Sidebar collapsible="icon" variant="inset">
+        <Sidebar collapsible="icon" variant="floating" className="p-3.5">
             <SidebarHeader>
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild>
-                            <Link href={roleNav.home.url} prefetch>
+                            <Link href={roleNav.homeUrl} prefetch>
                                 <AppLogo />
                             </Link>
                         </SidebarMenuButton>
@@ -61,7 +99,7 @@ export function AppSidebar() {
             </SidebarHeader>
 
             <SidebarContent>
-                <NavMain items={mainNavItems} />
+                <NavMain groups={roleNav.groups} />
             </SidebarContent>
 
             <SidebarFooter>
@@ -70,3 +108,4 @@ export function AppSidebar() {
         </Sidebar>
     );
 }
+

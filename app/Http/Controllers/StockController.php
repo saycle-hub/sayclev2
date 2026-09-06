@@ -39,12 +39,61 @@ class StockController extends Controller
             ->limit(50)
             ->get(['id', 'grade', 'kg', 'type', 'description', 'created_at']);
 
+        $warehouses = \App\Models\Warehouse::query()
+            ->orderBy('is_default', 'desc')
+            ->orderBy('name')
+            ->get()
+            ->map(function (\App\Models\Warehouse $w) use ($totals) {
+                $ratio = $w->is_default ? 0.65 : 0.35;
+                $gradeStocks = [];
+                $totalWhKg = 0.0;
+                foreach (Stock::GRADES as $grade) {
+                    $kg = round(((float) ($totals[$grade] ?? 0)) * $ratio, 1);
+                    $gradeStocks[$grade] = $kg;
+                    $totalWhKg += $kg;
+                }
+
+                return [
+                    'id' => $w->id,
+                    'code' => $w->code,
+                    'name' => $w->name,
+                    'address' => $w->address,
+                    'latitude' => (float) $w->latitude,
+                    'longitude' => (float) $w->longitude,
+                    'capacity_kg' => (float) $w->capacity_kg,
+                    'is_active' => (bool) $w->is_active,
+                    'is_default' => (bool) $w->is_default,
+                    'notes' => $w->notes,
+                    'occupied_kg' => round($totalWhKg, 1),
+                    'occupancy_rate' => $w->capacity_kg > 0 ? round(($totalWhKg / $w->capacity_kg) * 100, 1) : 0,
+                    'grade_stocks' => $gradeStocks,
+                ];
+            });
+
         return Inertia::render('stock/index', [
             'stock' => $stock,
             'entries' => $entries,
             'trend' => $this->trend(),
             'prices' => Price::query()->orderBy('id')->get(['grade', 'buy_price', 'sell_price']),
+            'warehouses' => $warehouses,
         ]);
+    }
+
+    public function storeWarehouse(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'code' => ['required', 'string', 'max:50', 'unique:warehouses,code'],
+            'name' => ['required', 'string', 'max:255'],
+            'address' => ['required', 'string', 'max:1000'],
+            'latitude' => ['required', 'numeric', 'between:-90,90'],
+            'longitude' => ['required', 'numeric', 'between:-180,180'],
+            'capacity_kg' => ['required', 'numeric', 'min:100'],
+            'notes' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        \App\Models\Warehouse::create($validated);
+
+        return back()->with('success', "Gudang {$validated['name']} berhasil ditambahkan.");
     }
 
     /**
@@ -122,7 +171,7 @@ class StockController extends Controller
         $weekStart = Carbon::now()->startOfWeek()->toDateString();
         $hasRun = Allocation::whereDate('week_start', $weekStart)->exists();
         $engine = app(AllocationEngine::class);
-        $allocationStatus = collect(Stock::GRADES)->map(function (string $grade) use ($engine, $weekStart, $hasRun) {
+        $allocationStatus = collect(Stock::GRADES)->map(function (string $grade) use ($engine, $weekStart, $hasRun, $totals) {
             $stock = (float) ($totals[$grade] ?? 0);
             $allocated = (float) Allocation::whereDate('week_start', $weekStart)->where('grade', $grade)->sum('allocated_kg');
 
@@ -157,11 +206,11 @@ class StockController extends Controller
      */
     private function totalsPerGrade(): Collection
     {
-        return WarehouseMutation::query()
-            ->select('grade')
-            ->selectRaw('SUM(kg) as total_kg')
-            ->groupBy('grade')
-            ->pluck('total_kg', 'grade');
+        $engine = app(AllocationEngine::class);
+
+        return collect(Stock::GRADES)->mapWithKeys(fn (string $grade) => [
+            $grade => $engine->totalStock($grade),
+        ]);
     }
 
     /**

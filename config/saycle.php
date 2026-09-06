@@ -12,8 +12,8 @@ return [
     */
 
     'depot' => [
-        'lat' => env('SAYCLE_DEPOT_LAT', -6.9932),
-        'lng' => env('SAYCLE_DEPOT_LNG', 110.4203),
+        'lat' => env('SAYCLE_DEPOT_LAT', -7.8285),
+        'lng' => env('SAYCLE_DEPOT_LNG', 110.3780),
     ],
 
     'pickup_gps_tolerance_m' => env('SAYCLE_PICKUP_GPS_TOLERANCE_M', 50),

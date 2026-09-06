@@ -54,7 +54,7 @@ export default function PartnerShow({ partner }: { partner: PartnerDetail }) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={partner.name} />
-            <div className="flex h-full flex-1 flex-col gap-6 bg-[#f4f3ed] p-4 md:p-6">
+            <div className="flex h-full flex-1 flex-col gap-6 bg-white p-4 md:p-6">
                 <div className="flex flex-wrap items-end justify-between gap-3">
                     <div>
                         <Link

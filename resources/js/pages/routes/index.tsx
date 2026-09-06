@@ -1,8 +1,11 @@
 import { RouteMap } from '@/components/route-map';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, useForm } from '@inertiajs/react';
-import { MapPin, Play, Truck } from 'lucide-react';
+import { AlertTriangle, MapPin, RotateCw, Truck } from 'lucide-react';
+import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dasbor', href: '/dashboard' },
@@ -31,25 +34,21 @@ interface VehicleRoute {
     distance_km: number;
     duration_min: number;
     all_assigned: boolean;
-    officer_name: string | null;
+    officer_name?: string | null;
     stops: Stop[];
 }
 
-interface UnassignedSale {
+interface Unassigned {
     id: number;
     contact: string;
     kg: number;
-    lat: number;
-    lng: number;
 }
 
 interface Props {
-    depot: { lat: number; lng: number };
-    routes: VehicleRoute[];
-    unassigned: UnassignedSale[];
-    noCoordsCount: number;
-    officers: { id: number; name: string }[];
-    allVehicles: { id: number; name: string; capacity_kg: number; is_active: boolean }[];
+    routes?: VehicleRoute[];
+    unassigned?: Unassigned[];
+    noCoordsCount?: number;
+    depot?: { lat: number; lng: number };
 }
 
 function fmtKm(km: number) {
@@ -63,61 +62,110 @@ function fmtKg(kg: number) {
     return `${kg.toLocaleString('id-ID', { maximumFractionDigits: 1 })} kg`;
 }
 
-export default function RoutesIndex({ depot, routes, unassigned, noCoordsCount }: Props) {
-    const optimizeForm = useForm({});
+export default function RoutesIndex({
+    routes = [],
+    unassigned = [],
+    noCoordsCount = 0,
+    depot = { lat: -7.7123, lng: 110.3621 },
+}: Props) {
+    const form = useForm({});
+    const [showUnassignedModal, setShowUnassignedModal] = useState(false);
 
     const runOptimize = () => {
-        optimizeForm.post(route('routes.optimize'), { preserveScroll: true });
+        form.post(route('routes.optimize'));
     };
 
-    const totalStops = routes.reduce((s, r) => s + r.stops.length, 0);
-    const totalKg = routes.reduce((s, r) => s + r.load_kg, 0);
-    const totalKm = routes.reduce((s, r) => s + r.distance_km, 0);
+    const totalStops = routes.reduce((acc, r) => acc + r.stops.length, 0);
+    const totalKg = routes.reduce((acc, r) => acc + r.load_kg, 0);
+    const totalKm = routes.reduce((acc, r) => acc + r.distance_km, 0);
 
-    // Build map data
-    const mapStops = routes.flatMap((r) =>
-        r.stops.map((s) => ({ lat: s.lat, lng: s.lng, order: s.order, label: `${s.contact} — ${fmtKg(s.kg)}`, color: r.color })),
-    );
-    const mapLines = routes
-        .filter((r) => r.stops.length > 0)
-        .map((r) => ({
-            color: r.color,
-            points: [[depot.lat, depot.lng] as [number, number], ...r.stops.map((s) => [s.lat, s.lng] as [number, number])],
-        }));
+    // Build Leaflet Route Map data starting from Depot
+    let globalOrder = 1;
+    const mapStops: any[] = [];
+    const mapLines: any[] = [];
+
+    routes.forEach((r) => {
+        const routePoints: [number, number][] = [[depot.lat, depot.lng]];
+
+        r.stops.forEach((stop) => {
+            if (stop.lat !== 0 && stop.lng !== 0) {
+                mapStops.push({
+                    lat: stop.lat,
+                    lng: stop.lng,
+                    order: globalOrder++,
+                    label: `${r.vehicle_name} (Stop ${stop.order}): ${stop.contact} — ${fmtKg(stop.kg)}`,
+                    color: r.color,
+                });
+                routePoints.push([stop.lat, stop.lng]);
+            }
+        });
+
+        if (routePoints.length > 1) {
+            // Return back to depot
+            routePoints.push([depot.lat, depot.lng]);
+            mapLines.push({
+                color: r.color,
+                points: routePoints,
+            });
+        }
+    });
 
     const hasStops = totalStops > 0;
 
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Rute pickup" />
-            <div className="flex h-full flex-1 flex-col gap-6 bg-[#f4f3ed] p-4 md:p-6">
-                {/* Header */}
-                <div className="flex flex-wrap items-end justify-between gap-3">
-                    <div>
-                        <h1 className="text-2xl font-semibold tracking-tight text-[#18352a]">Rute pickup</h1>
-                        <p className="mt-1 text-sm text-[#18352a]/70">
-                            Optimasi rute pengambilan limbah sayur dari supplier ke gudang.
-                        </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <Link
-                            href={route('vehicles.index')}
-                            className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[#2f6848]/25 bg-white px-4 text-sm font-medium text-[#18352a] hover:bg-[#2f6848]/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e88c12]"
-                        >
-                            <Truck size={16} aria-hidden />
-                            Kendaraan
-                        </Link>
-                        <button
+        <AppLayout
+            breadcrumbs={breadcrumbs}
+            title="Rute Penjemputan Pemasok"
+            description="Optimasi rute penjemputan sampah organik dari pemasok ke gudang utama."
+            actions={
+                <>
+                    <Link
+                        href={route('vehicles.index')}
+                        className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/40 bg-white/10 px-4 text-sm font-medium text-white hover:bg-white hover:text-[#0f5235] transition-all"
+                    >
+                        <Truck size={16} aria-hidden />
+                        Kendaraan
+                    </Link>
+                    <button
+                        type="button"
+                        onClick={runOptimize}
+                        disabled={form.processing}
+                        className="inline-flex min-h-11 items-center gap-2 rounded-full bg-white px-5 font-semibold text-[#0f5235] hover:bg-white/90 shadow-sm transition-all disabled:opacity-60"
+                    >
+                        <RotateCw size={16} className={form.processing ? 'animate-spin' : ''} aria-hidden />
+                        Optimasi Rute
+                    </button>
+                </>
+            }
+        >
+            <Head title="Rute Penjemputan" />
+            <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6 text-[#18352a]">
+
+                {/* Top Notification Bar for Unassigned Capacity Overflow */}
+                {unassigned.length > 0 && (
+                    <div className="flex items-center justify-between gap-3 rounded-2xl border border-[#e88c12]/40 bg-[#e88c12]/10 p-3.5 px-5 text-[#18352a] shadow-sm">
+                        <div className="flex items-center gap-3">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#e88c12]/20 text-[#e88c12]">
+                                <AlertTriangle className="h-5 w-5" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-bold text-[#18352a]">
+                                    {unassigned.length} Titik Penjemputan Melebihi Kapasitas Armada
+                                </p>
+                                <p className="text-xs text-[#18352a]/70">
+                                    Beberapa lokasi penjemputan belum tertampung pada rute aktif hari ini.
+                                </p>
+                            </div>
+                        </div>
+                        <Button
                             type="button"
-                            onClick={runOptimize}
-                            disabled={optimizeForm.processing}
-                            className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#e88c12] px-5 font-semibold text-[#18352a] hover:bg-[#f6b33c] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e88c12] disabled:opacity-60"
+                            onClick={() => setShowUnassignedModal(true)}
+                            className="h-9 rounded-xl bg-[#18352a] px-4 text-xs font-bold text-white hover:bg-[#2f6848] transition-all shrink-0"
                         >
-                            <Play size={16} aria-hidden />
-                            {optimizeForm.processing ? 'Mengoptimasi…' : 'Jalankan optimasi'}
-                        </button>
+                            Lihat Rincian ({unassigned.length})
+                        </Button>
                     </div>
-                </div>
+                )}
 
                 {/* Warnings */}
                 {noCoordsCount > 0 && (
@@ -145,89 +193,91 @@ export default function RoutesIndex({ depot, routes, unassigned, noCoordsCount }
                         </dl>
 
                         {/* Map */}
-                        <div className="overflow-hidden rounded-2xl border border-[#2f6848]/15 bg-white">
+                        <div className="overflow-hidden rounded-2xl border-0 bg-white shadow-sm">
                             <RouteMap depot={depot} stops={mapStops} lines={mapLines} className="h-[420px] w-full" />
                         </div>
 
                         {/* Vehicle route cards */}
                         <div className="grid gap-4 lg:grid-cols-2">
                             {routes.map((r) => (
-                                <Link
+                                <div
                                     key={r.vehicle_id}
-                                    href={route('routes.show', r.vehicle_id)}
-                                    className="rounded-2xl border border-[#2f6848]/15 bg-white p-5 transition hover:border-[#2f6848]/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e88c12]"
+                                    className="flex flex-col justify-between rounded-2xl border border-[#18352a]/10 bg-white p-5 shadow-sm transition hover:border-[#2f6848]/40"
                                 >
-                                    <div className="flex items-center justify-between gap-2">
-                                        <div className="flex items-center gap-2">
-                                            <span
-                                                className="inline-block size-3 rounded-full"
-                                                style={{ background: r.color }}
-                                                aria-hidden
-                                            />
-                                            <span className="font-semibold text-[#18352a]">{r.vehicle_name}</span>
+                                    <div>
+                                        <div className="flex items-center justify-between gap-2">
+                                            <Link
+                                                href={route('routes.show', r.vehicle_id)}
+                                                className="flex items-center gap-2 font-bold text-base text-[#18352a] hover:underline"
+                                            >
+                                                <span
+                                                    className="inline-block size-3 rounded-full"
+                                                    style={{ background: r.color }}
+                                                    aria-hidden
+                                                />
+                                                <span>{r.vehicle_name}</span>
+                                            </Link>
+                                            {r.all_assigned && r.officer_name ? (
+                                                <span className="rounded-full bg-[#2f6848]/10 px-3 py-1 text-xs font-bold text-[#2f6848]">
+                                                    Driver: {r.officer_name}
+                                                </span>
+                                            ) : r.stops.length > 0 ? (
+                                                <span className="rounded-full bg-[#e88c12]/15 px-3 py-1 text-xs font-bold text-[#e88c12]">
+                                                    Belum Ditugaskan
+                                                </span>
+                                            ) : null}
                                         </div>
-                                        {r.all_assigned && r.officer_name ? (
-                                            <span className="rounded-full bg-[#2f6848]/10 px-2.5 py-1 text-xs font-semibold text-[#2f6848]">
-                                                {r.officer_name}
-                                            </span>
-                                        ) : r.stops.length > 0 ? (
-                                            <span className="rounded-full bg-[#e88c12]/15 px-2.5 py-1 text-xs font-semibold text-[#18352a]">
-                                                Belum ditugaskan
-                                            </span>
-                                        ) : null}
+
+                                        <dl className="mt-3 grid grid-cols-3 gap-2 text-sm bg-[#F2F7F3] p-3 rounded-xl">
+                                            <div>
+                                                <dt className="text-xs text-[#18352a]/70">Titik</dt>
+                                                <dd className="font-semibold tabular-nums">{r.stops.length}</dd>
+                                            </div>
+                                            <div>
+                                                <dt className="text-xs text-[#18352a]/70">Jarak</dt>
+                                                <dd className="font-semibold tabular-nums">{fmtKm(r.distance_km)}</dd>
+                                            </div>
+                                            <div>
+                                                <dt className="text-xs text-[#18352a]/70">Durasi</dt>
+                                                <dd className="font-semibold tabular-nums">{fmtMin(r.duration_min)}</dd>
+                                            </div>
+                                        </dl>
+
+                                        {/* Capacity bar */}
+                                        <div className="mt-3">
+                                            <div className="h-1.5 w-full rounded-full bg-[#2f6848]/10">
+                                                <div
+                                                    className="h-1.5 rounded-full bg-[#2f6848]"
+                                                    style={{ width: `${Math.min(100, (r.load_kg / r.capacity_kg) * 100)}%` }}
+                                                />
+                                            </div>
+                                            <p className="mt-1 text-xs text-[#18352a]/70 tabular-nums">
+                                                Kapasitas: {fmtKg(r.load_kg)} / {fmtKg(r.capacity_kg)}
+                                            </p>
+                                        </div>
                                     </div>
-                                    <dl className="mt-3 grid grid-cols-4 gap-3 text-sm">
-                                        <div>
-                                            <dt className="text-[#18352a]/70">Titik</dt>
-                                            <dd className="font-semibold tabular-nums">{r.stops.length}</dd>
-                                        </div>
-                                        <div>
-                                            <dt className="text-[#18352a]/70">Muatan</dt>
-                                            <dd className="font-semibold tabular-nums">
-                                                {fmtKg(r.load_kg)}
-                                            </dd>
-                                        </div>
-                                        <div>
-                                            <dt className="text-[#18352a]/70">Jarak</dt>
-                                            <dd className="font-semibold tabular-nums">{fmtKm(r.distance_km)}</dd>
-                                        </div>
-                                        <div>
-                                            <dt className="text-[#18352a]/70">Durasi</dt>
-                                            <dd className="font-semibold tabular-nums">{fmtMin(r.duration_min)}</dd>
-                                        </div>
-                                    </dl>
-                                    {/* Capacity bar */}
-                                    <div className="mt-3">
-                                        <div className="h-1.5 w-full rounded-full bg-[#2f6848]/10">
-                                            <div
-                                                className="h-1.5 rounded-full bg-[#2f6848]"
-                                                style={{ width: `${Math.min(100, (r.load_kg / r.capacity_kg) * 100)}%` }}
-                                            />
-                                        </div>
-                                        <p className="mt-1 text-xs text-[#18352a]/70 tabular-nums">
-                                            {fmtKg(r.load_kg)} / {fmtKg(r.capacity_kg)}
-                                        </p>
+
+                                    {/* Action & Assignment Footer */}
+                                    <div className="mt-4 flex items-center justify-between gap-3 border-t border-[#18352a]/10 pt-3">
+                                        <Link
+                                            href={route('routes.show', r.vehicle_id)}
+                                            className="text-xs font-bold text-[#2f6848] hover:underline"
+                                        >
+                                            Lihat rute detail →
+                                        </Link>
+
+                                        {r.stops.length > 0 && (!r.all_assigned || !r.officer_name) && (
+                                            <Link
+                                                href={route('routes.show', r.vehicle_id)}
+                                                className="inline-flex min-h-9 items-center justify-center rounded-xl bg-[#2f6848] px-4 text-xs font-bold text-white shadow-sm transition-colors hover:bg-[#18352a]"
+                                            >
+                                                Tugaskan Driver
+                                            </Link>
+                                        )}
                                     </div>
-                                </Link>
+                                </div>
                             ))}
                         </div>
-
-                        {/* Unassigned overflow */}
-                        {unassigned.length > 0 && (
-                            <div className="rounded-2xl border border-dashed border-[#e88c12]/40 bg-white p-5">
-                                <h2 className="font-semibold text-[#18352a]">
-                                    <MapPin size={16} className="mr-1 inline" aria-hidden />
-                                    {unassigned.length} titik melebihi kapasitas armada
-                                </h2>
-                                <ul className="mt-3 space-y-1 text-sm text-[#18352a]/70">
-                                    {unassigned.map((s) => (
-                                        <li key={s.id}>
-                                            {s.contact} — {fmtKg(s.kg)}
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-                        )}
                     </>
                 ) : (
                     /* Empty state */
@@ -242,6 +292,39 @@ export default function RoutesIndex({ depot, routes, unassigned, noCoordsCount }
                     </div>
                 )}
             </div>
+
+            {/* Unassigned Capacity Modal Dialog */}
+            <Dialog open={showUnassignedModal} onOpenChange={setShowUnassignedModal}>
+                <DialogContent className="bg-white text-[#18352a] border border-[#8FB996]/35 max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle className="text-[#18352a] flex items-center gap-2">
+                            <AlertTriangle className="h-5 w-5 text-[#e88c12]" />
+                            {unassigned.length} Titik Penjemputan Melebihi Kapasitas
+                        </DialogTitle>
+                        <DialogDescription className="text-[#709775]">
+                            Lokasi penjemputan dari laporan pemasok yang belum tertampung oleh armada aktif hari ini.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-2 py-2 max-h-96 overflow-y-auto pr-1">
+                        {unassigned.map((s) => (
+                            <div key={s.id} className="flex justify-between items-center text-xs p-3 rounded-xl bg-[#F2F7F3] border border-[#8FB996]/20">
+                                <div className="space-y-0.5">
+                                    <p className="font-bold text-[#18352a]">{s.contact}</p>
+                                    <p className="text-[11px] text-[#709775]">Penjemputan #{s.id}</p>
+                                </div>
+                                <span className="font-mono font-bold text-[#e88c12] bg-[#e88c12]/10 px-2.5 py-1 rounded-lg">
+                                    {fmtKg(s.kg)}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="flex justify-end pt-2">
+                        <Button variant="outline" onClick={() => setShowUnassignedModal(false)}>
+                            Tutup
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </AppLayout>
     );
 }

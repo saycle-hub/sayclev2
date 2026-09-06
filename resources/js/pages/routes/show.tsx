@@ -39,8 +39,9 @@ function fmtSec(s: number) {
     return min < 60 ? `${min} mnt` : `${Math.floor(min / 60)} j ${min % 60} mnt`;
 }
 
-const statusLabel: Record<string, string> = { pending: 'Pending', assigned: 'Ditugaskan', in_progress: 'Berjalan' };
+const statusLabel: Record<string, string> = { planned: 'Direncanakan', pending: 'Direncanakan', assigned: 'Ditugaskan', in_progress: 'Berjalan' };
 const statusStyle: Record<string, string> = {
+    planned: 'border-transparent bg-[#e88c12]/15 text-[#18352a]',
     pending: 'border-transparent bg-[#e88c12]/15 text-[#18352a]',
     assigned: 'border-transparent bg-[#2f6848]/10 text-[#2f6848]',
     in_progress: 'border-transparent bg-[#18352a]/10 text-[#18352a]',
@@ -56,7 +57,7 @@ export default function RouteShow({ vehicle, depot, stops, officers }: Props) {
     const [officerId, setOfficerId] = useState<string>('');
     const assignForm = useForm<{ officer_id: number | '' }>({ officer_id: '' });
 
-    const hasPending = stops.some((s) => s.status === 'pending');
+    const canAssign = stops.length > 0 && officers.length > 0;
     const totalKg = stops.reduce((s, st) => s + st.kg, 0);
     const totalM = stops.reduce((s, st) => s + st.distance_m, 0);
     const totalS = stops.reduce((s, st) => s + st.duration_s, 0);
@@ -83,7 +84,7 @@ export default function RouteShow({ vehicle, depot, stops, officers }: Props) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`Rute ${vehicle.name}`} />
-            <div className="flex h-full flex-1 flex-col gap-6 bg-[#f4f3ed] p-4 md:p-6">
+            <div className="flex h-full flex-1 flex-col gap-6 bg-white p-4 md:p-6">
                 {/* Header */}
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
@@ -98,15 +99,15 @@ export default function RouteShow({ vehicle, depot, stops, officers }: Props) {
                 </div>
 
                 {/* Assign panel */}
-                {hasPending && officers.length > 0 && (
-                    <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-[#2f6848]/15 bg-white p-4">
-                        <div className="flex-1">
-                            <label htmlFor="officer-select" className="mb-1 block text-sm font-medium text-[#18352a]">
-                                Tugaskan ke officer
+                {canAssign && (
+                    <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-[#2f6848]/20 bg-[#2f6848]/5 p-5 shadow-sm">
+                        <div className="flex-1 min-w-[240px]">
+                            <label htmlFor="officer-select" className="mb-1.5 block text-sm font-bold text-[#18352a]">
+                                Tugaskan Rute Ini ke Driver / Officer:
                             </label>
                             <Select value={officerId} onValueChange={setOfficerId}>
-                                <SelectTrigger id="officer-select" className="min-h-11 w-full max-w-xs">
-                                    <SelectValue placeholder="Pilih officer…" />
+                                <SelectTrigger id="officer-select" className="min-h-11 w-full bg-white border-[#18352a]/20">
+                                    <SelectValue placeholder="Pilih akun driver / kurir…" />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {officers.map((o) => (
@@ -120,26 +121,26 @@ export default function RouteShow({ vehicle, depot, stops, officers }: Props) {
                         <Button
                             onClick={doAssign}
                             disabled={!officerId || assignForm.processing}
-                            className="min-h-11 bg-[#2f6848] text-[#f4f3ed] hover:bg-[#18352a] focus-visible:ring-2 focus-visible:ring-[#e88c12] focus-visible:outline-none"
+                            className="min-h-11 rounded-xl bg-[#2f6848] px-6 font-bold text-white shadow-sm hover:bg-[#18352a]"
                         >
-                            {assignForm.processing ? 'Menugaskan…' : 'Tugaskan'}
+                            {assignForm.processing ? 'Menugaskan…' : 'Simpan Penugasan'}
                         </Button>
                         {assignForm.errors.officer_id && (
-                            <p className="w-full text-sm text-red-600">{assignForm.errors.officer_id}</p>
+                            <p className="w-full text-sm text-red-600 font-medium">{assignForm.errors.officer_id}</p>
                         )}
                     </div>
                 )}
 
                 {/* Map */}
                 {stops.length > 0 && (
-                    <div className="overflow-hidden rounded-2xl border border-[#2f6848]/15 bg-white">
+                    <div className="overflow-hidden rounded-2xl border-0 bg-white shadow-sm">
                         <RouteMap depot={depot} stops={mapStops} lines={mapLines} className="h-[380px] w-full" />
                     </div>
                 )}
 
                 {/* Stops table */}
                 {stops.length > 0 ? (
-                    <div className="overflow-hidden rounded-2xl border border-[#2f6848]/15 bg-white">
+                    <div className="overflow-hidden rounded-2xl border-0 bg-white shadow-sm">
                         <Table>
                             <TableHeader>
                                 <TableRow>
@@ -169,7 +170,7 @@ export default function RouteShow({ vehicle, depot, stops, officers }: Props) {
                                         </TableCell>
                                     </TableRow>
                                 ))}
-                                <TableRow className="bg-[#f4f3ed]/50 font-semibold">
+                                <TableRow className="bg-white/50 font-semibold">
                                     <TableCell />
                                     <TableCell>Total</TableCell>
                                     <TableCell className="text-right tabular-nums">{fmtKg(totalKg)}</TableCell>

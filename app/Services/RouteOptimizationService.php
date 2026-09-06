@@ -35,13 +35,12 @@ class RouteOptimizationService
      */
     public function optimize(): array
     {
-        // Delete pending tasks first so their sales re-enter the pool.
         return DB::transaction(function () {
-        $sales = $this->collectibleSales();
+            $sales = $this->collectibleSales();
 
-        if ($sales->isEmpty()) {
-            return ['assigned_sales' => 0, 'unassigned_sales' => 0, 'unassigned_kg' => 0.0, 'vehicles' => 0, 'used_osrm' => false];
-        }
+            if ($sales->isEmpty()) {
+                return ['assigned_sales' => 0, 'unassigned_sales' => 0, 'unassigned_kg' => 0.0, 'vehicles' => 0, 'used_osrm' => false];
+            }
 
         $vehicles = Vehicle::query()->where('is_active', true)->orderByDesc('capacity_kg')->get();
         $points = $this->sweepOrder($sales);
@@ -86,12 +85,36 @@ class RouteOptimizationService
      */
     private function collectibleSales(): Collection
     {
+        // Auto-geocode any accepted reports with null coordinates
+        SupplierReport::query()
+            ->whereIn('status', ['accepted', 'pickup_scheduled'])
+            ->where(fn ($q) => $q->whereNull('latitude')->orWhereNull('longitude'))
+            ->get()
+            ->each(function (SupplierReport $r) {
+                $addr = strtolower($r->manual_address ?? '');
+                $lat = null; $lng = null;
+                if (str_contains($addr, 'sosrowijayan') || str_contains($addr, 'malioboro') || str_contains($addr, 'gedongtengen') || str_contains($addr, 'sosromenduran')) {
+                    $lat = -7.7915; $lng = 110.3653;
+                } elseif (str_contains($addr, 'condong') || str_contains($addr, 'ngringin')) {
+                    $lat = -7.7554; $lng = 110.3957;
+                } elseif (str_contains($addr, 'kranggan') || str_contains($addr, 'poncowinatan')) {
+                    $lat = -7.7828; $lng = 110.3671;
+                } elseif (str_contains($addr, 'merapi') || str_contains($addr, 'cangkringan') || str_contains($addr, 'pakem')) {
+                    $lat = -7.6500; $lng = 110.4500;
+                } elseif (str_contains($addr, 'sleman') || str_contains($addr, 'depok') || str_contains($addr, 'yogyakarta') || str_contains($addr, 'jogja')) {
+                    $lat = -7.7600; $lng = 110.3700;
+                }
+                if ($lat !== null && $lng !== null) {
+                    $r->update(['latitude' => $lat, 'longitude' => $lng]);
+                }
+            });
+
         return SupplierReport::query()
-            ->where('status', 'accepted')
+            ->whereIn('status', ['accepted', 'pickup_scheduled'])
             ->where('estimated_kg', '>', 0)
             ->whereNotNull('latitude')
             ->whereNotNull('longitude')
-            ->whereDoesntHave('pickups', fn ($q) => $q->whereIn('status', ['planned', 'assigned', 'in_progress', 'completed']))
+            ->whereDoesntHave('pickups', fn ($q) => $q->whereIn('status', ['assigned', 'in_progress', 'completed']))
             ->orderBy('id')
             ->get()
             ->map(fn (SupplierReport $sale) => [
@@ -179,6 +202,7 @@ class RouteOptimizationService
             $pickup->fill([
                 'supplier_report_id' => $stop['supplier_report_id'],
                 'vehicle_id' => $vehicleId,
+                'officer_id' => null,
                 'stop_order' => $index + 1,
                 'status' => 'planned',
                 'estimated_kg' => $stop['kg'],

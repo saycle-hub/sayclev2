@@ -16,21 +16,21 @@ export function StatCard({ icon: Icon, label, value, hint, trend, className }: S
     const TrendIcon = trend?.direction === 'down' ? ArrowDownRight : ArrowUpRight;
 
     return (
-        <Card className={cn('rounded-2xl border-[#2f6848]/15 bg-white shadow-none', className)}>
+        <Card className={cn('rounded-2xl border border-[#8FB996]/35 bg-white shadow-[0_2px_8px_rgba(17,29,19,0.04)]', className)}>
             <CardContent className="flex items-start gap-4 p-5">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#2f6848]/10 text-[#2f6848]">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#A1CCA5]/30 text-[#415D43]">
                     <Icon className="h-5 w-5" aria-hidden="true" />
                 </div>
                 <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium text-[#18352a]/70">{label}</div>
-                    <p className="mt-1 truncate text-2xl font-semibold tracking-tight text-[#18352a] tabular-nums">{value}</p>
+                    <div className="text-sm font-medium text-[#111D13]/70">{label}</div>
+                    <p className="mt-1 truncate text-2xl font-semibold tracking-tight text-[#111D13] tabular-nums">{value}</p>
                     {(trend || hint) && (
-                        <p className="mt-1 flex items-center gap-1 text-xs text-[#18352a]/60">
+                        <p className="mt-1 flex items-center gap-1 text-xs text-[#111D13]/60">
                             {trend && (
                                 <span
                                     className={cn(
                                         'inline-flex items-center gap-0.5 font-semibold',
-                                        trend.direction === 'down' ? 'text-[#6b4f2e]' : 'text-[#2f6848]',
+                                        trend.direction === 'down' ? 'text-[#709775]' : 'text-[#415D43]',
                                     )}
                                 >
                                     <TrendIcon className="h-3.5 w-3.5" aria-hidden="true" />

@@ -92,7 +92,7 @@ class DeliveryCandidateTest extends TestCase
         $allocation = Allocation::where('partner_id', $partner->id)->first();
         $this->assertNotNull($allocation);
 
-        $date = \Carbon\Carbon::tomorrow();
+        $date = \Carbon\Carbon::today();
         /** @var DeliverySchedulingService $service */
         $service = app(DeliverySchedulingService::class);
         $service->schedule($date);
@@ -119,8 +119,8 @@ class DeliveryCandidateTest extends TestCase
 
         /** @var DeliverySchedulingService $service */
         $service = app(DeliverySchedulingService::class);
-        $service->schedule(\Carbon\Carbon::tomorrow());
-        $service->schedule(\Carbon\Carbon::tomorrow());
+        $service->schedule(\Carbon\Carbon::today());
+        $service->schedule(\Carbon\Carbon::today());
 
         // Two allocations (minimum + ideal increment) → two reservation-backed lines.
         $this->assertSame(120.0, (float) $delivery->lines()->get()->sum('kg'));
@@ -138,7 +138,7 @@ class DeliveryCandidateTest extends TestCase
         // Stock 150 < total min 150? No: 150 = 100 + 50 minimums, normal tier edge.
         $this->assertSame(150.0, (float) Allocation::query()->sum('allocated_kg'));
 
-        $date = \Carbon\Carbon::tomorrow();
+        $date = \Carbon\Carbon::today();
         app(DeliverySchedulingService::class)->schedule($date);
 
         $linesA = Delivery::where('partner_id', $partnerA->id)->first()->lines()->get();
@@ -159,7 +159,7 @@ class DeliveryCandidateTest extends TestCase
         ]);
         $delivery->lines()->delete();
 
-        app(DeliverySchedulingService::class)->schedule(\Carbon\Carbon::tomorrow());
+        app(DeliverySchedulingService::class)->schedule(\Carbon\Carbon::today());
 
         $this->assertSame(0, $delivery->lines()->count());
     }

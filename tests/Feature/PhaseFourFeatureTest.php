@@ -114,10 +114,12 @@ class PhaseFourFeatureTest extends TestCase
 
     public function test_grouped_contracts_share_partner_delivery_and_rerun_is_idempotent(): void
     {
+        Carbon::setTestNow('2026-09-01');
         $one = $this->contract('harian'); $two = $one->partner->contracts()->create(['name'=>'Two','status'=>'active','grade'=>'Layak','min_capacity_kg'=>1,'ideal_capacity_kg'=>2,'max_capacity_kg'=>3,'frequency'=>'harian','receiving_days'=>[],'start_date'=>'2026-01-01','buy_price'=>1,'sell_price'=>2]);
         $admin = $this->admin(); $this->actingAs($admin)->post('/deliveries/schedule', ['service_date'=>'2026-09-01']); $this->actingAs($admin)->post('/deliveries/schedule', ['service_date'=>'2026-09-01']);
         $delivery = Delivery::where('partner_id', $one->partner_id)->firstOrFail();
         $this->assertSame(2, $delivery->contracts()->count()); $this->assertSame(1, Delivery::where('partner_id',$one->partner_id)->count());
+        Carbon::setTestNow();
     }
 
     public function test_missing_invalid_officer_and_inactive_vehicle_are_rejected(): void

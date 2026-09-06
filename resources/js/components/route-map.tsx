@@ -48,8 +48,16 @@ export function RouteMap({ depot, stops, lines, className = '' }: RouteMapProps)
             if (cancelled || !ref.current) return;
 
             if (mapRef.current) {
-                mapRef.current.remove();
+                try {
+                    mapRef.current.remove();
+                } catch {
+                    // Ignore cleanup error if already unmounted
+                }
                 mapRef.current = null;
+            }
+
+            if (ref.current && (ref.current as any)._leaflet_id) {
+                (ref.current as any)._leaflet_id = null;
             }
 
             const map = L.default.map(ref.current, {
@@ -73,14 +81,36 @@ export function RouteMap({ depot, stops, lines, className = '' }: RouteMapProps)
                 weight: 2,
             }).addTo(map).bindTooltip('Gudang');
 
-            // Vehicle route lines
+            // Vehicle route lines - fetch real road navigation geometries from OSRM
             for (const line of lines) {
                 if (line.points.length < 2) continue;
-                L.default.polyline(line.points, {
+
+                // Draw initial/fallback line
+                const polyline = L.default.polyline(line.points, {
                     color: line.color,
-                    weight: 3,
+                    weight: 4,
                     opacity: 0.75,
                 }).addTo(map);
+
+                // Fetch real road geometries from OSRM driving API
+                const coordsStr = line.points.map(([lat, lng]) => `${lng},${lat}`).join(';');
+                const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${coordsStr}?overview=full&geometries=geojson`;
+
+                fetch(osrmUrl)
+                    .then((res) => res.json())
+                    .then((data) => {
+                        if (cancelled) return;
+                        if (data.code === 'Ok' && data.routes?.[0]?.geometry?.coordinates) {
+                            const roadPoints: [number, number][] = data.routes[0].geometry.coordinates.map(
+                                ([lng, lat]: [number, number]) => [lat, lng] as [number, number],
+                            );
+                            polyline.setLatLngs(roadPoints);
+                            polyline.setStyle({ weight: 5, opacity: 0.9 });
+                        }
+                    })
+                    .catch(() => {
+                        // Fallback line stays as is
+                    });
             }
 
             // Stop markers with numbered pins

@@ -3,19 +3,22 @@ import { GradeBadge } from '@/components/grade-badge';
 import { FREQUENCY_LABELS, formatKg, type PartnerSummary } from '@/components/partner-card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { Handshake, Plus, Search, Users } from 'lucide-react';
+import { Eye, Handshake, Pencil, Plus, Search, Trash2, Users } from 'lucide-react';
 import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dasbor', href: '/dashboard' },
     { title: 'Mitra', href: '/partners' },
 ];
+
+import { PaginationBar } from '@/components/ui/pagination-bar';
 
 interface PartnersIndexProps {
     partners: PartnerSummary[];
@@ -25,56 +28,75 @@ interface PartnersIndexProps {
 
 export default function PartnersIndex({ partners, filters, stats }: PartnersIndexProps) {
     const [query, setQuery] = useState(filters.q);
+    const [deletePartner, setDeletePartner] = useState<PartnerSummary | null>(null);
+
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 8;
+    const totalPages = Math.ceil(partners.length / itemsPerPage);
+    const paginatedPartners = partners.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
     const search = (e: React.FormEvent) => {
         e.preventDefault();
         router.get('/partners', { q: query }, { preserveState: true, replace: true });
     };
 
+    const confirmDelete = () => {
+        if (!deletePartner) return;
+        router.delete(`/partners/${deletePartner.id}`, {
+            onSuccess: () => setDeletePartner(null),
+        });
+    };
+
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
+        <AppLayout
+            breadcrumbs={breadcrumbs}
+            title="Mitra"
+            description="Penerima hasil olahan per grade beserta kapasitas kontraknya."
+            actions={
+                <Button asChild className="bg-white text-[#0f5235] font-semibold hover:bg-white/90 rounded-full shadow-sm transition-all">
+                    <Link href="/partners/create">
+                        <Plus className="h-4 w-4" aria-hidden="true" />
+                        Tambah mitra
+                    </Link>
+                </Button>
+            }
+        >
             <Head title="Mitra" />
-            <div className="flex h-full flex-1 flex-col gap-6 bg-[#f4f3ed] p-4 md:p-6">
-                <div className="flex flex-wrap items-end justify-between gap-3">
-                    <div>
-                        <h1 className="text-2xl font-semibold tracking-tight text-[#18352a]">Mitra</h1>
-                        <p className="mt-1 text-sm text-[#18352a]/70">Penerima hasil olahan per grade beserta kapasitas kontraknya.</p>
-                    </div>
-                    <Button asChild className="min-h-11 bg-[#e88c12] text-[#18352a] hover:bg-[#e88c12]/90 md:min-h-9">
-                        <Link href="/partners/create">
-                            <Plus className="h-4 w-4" aria-hidden="true" />
-                            Tambah mitra
-                        </Link>
-                    </Button>
-                </div>
+            <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
 
                 <div className="grid gap-4 sm:grid-cols-3">
-                    <div className="rounded-2xl border border-[#2f6848]/15 bg-white p-5">
+                    <div className="rounded-2xl border border-[#8FB996]/35 bg-white p-5 shadow-[0_2px_8px_rgba(17,29,19,0.04)]">
                         <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#2f6848]/10 text-[#2f6848]">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#A1CCA5]/20 text-[#415D43]">
                                 <Users className="h-5 w-5" aria-hidden="true" />
                             </div>
                             <div>
-                                <p className="text-sm text-[#18352a]/70">Total mitra</p>
-                                <p className="text-xl font-semibold text-[#18352a] tabular-nums">{stats.total}</p>
+                                <p className="text-sm font-medium text-[#111D13]/70">Total mitra</p>
+                                <p className="text-2xl font-bold text-[#111D13] tabular-nums">{stats.total}</p>
                             </div>
                         </div>
                     </div>
-                    <div className="rounded-2xl border border-[#2f6848]/15 bg-white p-5">
+                    <div className="rounded-2xl border border-[#8FB996]/35 bg-white p-5 shadow-[0_2px_8px_rgba(17,29,19,0.04)]">
                         <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#2f6848]/10 text-[#2f6848]">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#A1CCA5]/20 text-[#415D43]">
                                 <Handshake className="h-5 w-5" aria-hidden="true" />
                             </div>
                             <div>
-                                <p className="text-sm text-[#18352a]/70">Kontrak aktif</p>
-                                <p className="text-xl font-semibold text-[#18352a] tabular-nums">{stats.active}</p>
+                                <p className="text-sm font-medium text-[#111D13]/70">Mitra aktif (kontrak aktif)</p>
+                                <p className="text-2xl font-bold text-[#111D13] tabular-nums">{stats.active}</p>
                             </div>
                         </div>
                     </div>
-                    <div className="rounded-2xl border border-[#2f6848]/15 bg-white p-5">
-                        <p className="text-sm text-[#18352a]/70">Belum punya kontrak</p>
-                        <p className="mt-1 text-xl font-semibold text-[#18352a] tabular-nums">{stats.without_contract}</p>
-                        <p className="mt-1 text-xs text-[#18352a]/70">Mitra tanpa kontrak tidak menerima alokasi.</p>
+                    <div className="rounded-2xl border border-[#8FB996]/35 bg-white p-5 shadow-[0_2px_8px_rgba(17,29,19,0.04)]">
+                        <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#e88c12]/15 text-[#8a5a10]">
+                                <Handshake className="h-5 w-5" aria-hidden="true" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-medium text-[#111D13]/70">Tanpa kontrak</p>
+                                <p className="text-2xl font-bold text-[#111D13] tabular-nums">{stats.without_contract}</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -86,42 +108,43 @@ export default function PartnersIndex({ partners, filters, stats }: PartnersInde
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
                             placeholder="Nama atau alamat…"
-                            className="min-h-11 bg-white focus:border-[#e88c12] focus:ring-[#e88c12]/30"
+                            className="min-h-11 bg-white focus:border-[#709775] focus:ring-[#709775]/30"
                         />
                     </div>
                     <Button
                         type="submit"
                         variant="outline"
-                        className="min-h-11 border-[#2f6848]/30 text-[#2f6848] hover:bg-[#2f6848]/5 hover:text-[#2f6848]"
+                        className="min-h-11 border-[#709775] text-[#415D43] hover:bg-[#A1CCA5]/20"
                     >
                         <Search className="h-4 w-4" aria-hidden="true" />
                         Cari
                     </Button>
                 </form>
 
-                <div className="overflow-hidden rounded-2xl border border-[#2f6848]/15 bg-white">
+                <div className="overflow-hidden rounded-2xl border border-[#8FB996]/35 bg-white shadow-[0_2px_8px_rgba(17,29,19,0.04)]">
                     <Table>
                         <TableHeader>
-                            <TableRow className="bg-[#f4f3ed] hover:bg-[#f4f3ed]">
+                            <TableRow className="border-b border-[#8FB996]/25 bg-[#F2F7F3] hover:bg-[#F2F7F3] [&>th]:text-[#111D13] [&>th]:font-semibold">
                                 <TableHead>Nama</TableHead>
                                 <TableHead className="hidden lg:table-cell">Alamat</TableHead>
                                 <TableHead>Preferensi</TableHead>
                                 <TableHead>Frekuensi</TableHead>
                                 <TableHead className="hidden md:table-cell">Kapasitas (min–ideal–maks)</TableHead>
                                 <TableHead>Status</TableHead>
+                                <TableHead className="text-right">Aksi</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {partners.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="py-10 text-center text-[#18352a]/70">
+                                    <TableCell colSpan={7} className="py-10 text-center text-[#18352a]/70">
                                         {filters.q
                                             ? `Tidak ada mitra yang cocok dengan "${filters.q}".`
                                             : 'Belum ada mitra. Tambahkan mitra pertama.'}
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                partners.map((p) => {
+                                paginatedPartners.map((p) => {
                                     const active = (p.active_contracts_count ?? 0) > 0;
                                     const hasContract = (p.contracts_count ?? 0) > 0;
                                     return (
@@ -169,13 +192,65 @@ export default function PartnersIndex({ partners, filters, stats }: PartnersInde
                                                     />
                                                 </div>
                                             </TableCell>
+                                            <TableCell className="text-right">
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <Button asChild size="sm" variant="ghost" className="h-8 px-2 text-[#415D43] hover:bg-[#A1CCA5]/20" title="Detail & Kontrak">
+                                                        <Link href={`/partners/${p.id}`}>
+                                                            <Eye className="h-4 w-4" />
+                                                            <span className="sr-only">Detail</span>
+                                                        </Link>
+                                                    </Button>
+                                                    <Button asChild size="sm" variant="ghost" className="h-8 px-2 text-[#415D43] hover:bg-[#A1CCA5]/20" title="Ubah Profil Mitra">
+                                                        <Link href={`/partners/${p.id}/edit`}>
+                                                            <Pencil className="h-4 w-4" />
+                                                            <span className="sr-only">Ubah</span>
+                                                        </Link>
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        className="h-8 px-2 text-red-600 hover:bg-red-50 hover:text-red-700"
+                                                        onClick={() => setDeletePartner(p)}
+                                                        title="Hapus Mitra"
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                        <span className="sr-only">Hapus</span>
+                                                    </Button>
+                                                </div>
+                                            </TableCell>
                                         </TableRow>
                                     );
                                 })
                             )}
                         </TableBody>
                     </Table>
+                    <PaginationBar
+                        currentPage={currentPage}
+                        totalPages={totalPages}
+                        totalItems={partners.length}
+                        itemsPerPage={itemsPerPage}
+                        onPageChange={setCurrentPage}
+                    />
                 </div>
+
+                <Dialog open={!!deletePartner} onOpenChange={(open) => !open && setDeletePartner(null)}>
+                    <DialogContent className="bg-white">
+                        <DialogHeader>
+                            <DialogTitle className="text-[#111D13]">Hapus mitra {deletePartner?.name}?</DialogTitle>
+                            <DialogDescription>
+                                Mitra beserta seluruh kontraknya akan dihapus secara permanen dari sistem.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="flex justify-end gap-2">
+                            <Button type="button" variant="ghost" onClick={() => setDeletePartner(null)}>
+                                Batal
+                            </Button>
+                            <Button type="button" onClick={confirmDelete} className="bg-red-600 text-white hover:bg-red-700">
+                                Hapus permanen
+                            </Button>
+                        </div>
+                    </DialogContent>
+                </Dialog>
             </div>
         </AppLayout>
     );

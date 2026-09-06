@@ -81,7 +81,7 @@ class EndToEndFlowTest extends TestCase
 
         // --- 4. Allocation + schedule + assign trip ---
         $this->actingAs($admin)->post('/allocation/run')->assertRedirect();
-        $date = Carbon::tomorrow();
+        $date = Carbon::today();
         app(DeliverySchedulingService::class)->schedule($date);
         $delivery = Delivery::where('partner_id', Partner::firstOrFail()->id)->firstOrFail();
         $lineKg = [];

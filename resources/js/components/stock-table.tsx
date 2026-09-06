@@ -73,7 +73,7 @@ export function StockTable({ entries, className }: { entries: StockEntry[]; clas
             <div className="overflow-hidden rounded-2xl border border-[#2f6848]/15 bg-white">
                 <Table>
                     <TableHeader>
-                        <TableRow className="bg-[#f4f3ed] hover:bg-[#f4f3ed]">
+                        <TableRow className="bg-white hover:bg-white">
                             <TableHead>Waktu</TableHead>
                             <TableHead>Grade</TableHead>
                             <TableHead>Tipe</TableHead>

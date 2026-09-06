@@ -53,7 +53,7 @@ export function ContractSummary({ status, grade, minCapacityKg, idealCapacityKg,
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
                 <div className="grid grid-cols-3 gap-3 text-center">
-                    <div className="rounded-xl bg-[#f4f3ed] px-2 py-3">
+                    <div className="rounded-xl bg-white px-2 py-3">
                         <p className="text-xs text-[#18352a]/70">Min</p>
                         <p className="mt-0.5 font-semibold text-[#18352a] tabular-nums">{formatKg(minCapacityKg)} kg</p>
                     </div>
@@ -61,7 +61,7 @@ export function ContractSummary({ status, grade, minCapacityKg, idealCapacityKg,
                         <p className="text-xs text-[#18352a]/70">Ideal</p>
                         <p className="mt-0.5 font-semibold text-[#18352a] tabular-nums">{formatKg(idealCapacityKg)} kg</p>
                     </div>
-                    <div className="rounded-xl bg-[#f4f3ed] px-2 py-3">
+                    <div className="rounded-xl bg-white px-2 py-3">
                         <p className="text-xs text-[#18352a]/70">Maks</p>
                         <p className="mt-0.5 font-semibold text-[#18352a] tabular-nums">{formatKg(maxCapacityKg)} kg</p>
                     </div>

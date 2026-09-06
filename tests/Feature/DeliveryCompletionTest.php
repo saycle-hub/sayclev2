@@ -44,7 +44,7 @@ class DeliveryCompletionTest extends TestCase
 
         $this->actingAs(User::factory()->create(['role' => 'admin']))->post('/allocation/run');
 
-        $date = \Carbon\Carbon::tomorrow();
+        $date = \Carbon\Carbon::today();
         app(DeliverySchedulingService::class)->schedule($date);
         $delivery = Delivery::where('partner_id', $this->partner->id)->firstOrFail();
 

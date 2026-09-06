@@ -60,7 +60,7 @@ class PartnerController extends Controller
     {
         $partner->update($this->validated($request));
 
-        return redirect()->route('partners.show', $partner)->with('success', "Data mitra {$partner->name} berhasil diperbarui.");
+        return redirect()->route('partners.index')->with('success', "Data mitra {$partner->name} berhasil diperbarui.");
     }
 
     public function destroy(Partner $partner): RedirectResponse
