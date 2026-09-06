@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: saycle-app:latest
+    container_name: saycle-app
+    restart: unless-stopped
+    env_file:
+      - .env.docker
+    volumes:
+      - .:/var/www/html:cached
+    depends_on:
+      - db
+      - redis
+    networks:
+      - saycle-net
+
+  nginx:
+    image: nginx:alpine
+    container_name: saycle-nginx
+    restart: unless-stopped
+    ports:
+      - "8888:80"
+    volumes:
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - .:/var/www/html:cached
+    depends_on:
+      - app
+    networks:
+      - saycle-net
+
+  db:
+    image: mysql:8.0
+    container_name: saycle-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: secret
+      MYSQL_DATABASE: saycle
+      MYSQL_USER: saycle
+      MYSQL_PASSWORD: secret
+    volumes:
+      - db_data:/var/lib/mysql
+    ports:
+      - "3307:3306"
+    networks:
+      - saycle-net
+
+  redis:
+    image: redis:alpine
+    container_name: saycle-redis
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    networks:
+      - saycle-net
+
+networks:
+  saycle-net:
+    driver: bridge
+
+volumes:
+  db_data:
+    driver: local
