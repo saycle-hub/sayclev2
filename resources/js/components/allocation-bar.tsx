@@ -24,7 +24,7 @@ export function AllocationBar({ allocated, minimum, ideal, maximum, className }:
     const idealPct = pct(ideal);
     const minimumPct = pct(minimum);
 
-    const description = `${allocated.toLocaleString('id-ID', { maximumFractionDigits: 1 })} kg dialokasikan dari maksimum ${maximum.toLocaleString('id-ID', { maximumFractionDigits: 1 })} kg`;
+    const description = `${allocated.toLocaleString('id-ID', { maximumFractionDigits: 1 })} kg dialokasikan dari target ideal ${ideal.toLocaleString('id-ID', { maximumFractionDigits: 1 })} kg`;
 
     return (
         <div className={className} role="img" aria-label={description}>
@@ -39,10 +39,11 @@ export function AllocationBar({ allocated, minimum, ideal, maximum, className }:
                 {/* allocated */}
                 <div className="absolute inset-y-0 left-0 bg-[#2f6848]" style={{ width: `${allocatedPct}%` }} />
                 {/* minimum marker */}
-                <div className="absolute inset-y-0 w-0.5 bg-[#18352a]" style={{ left: `${minimumPct}%` }} aria-hidden="true" />
+                <div className="absolute inset-y-0 w-0.5 bg-[#18352a]" style={{ left: `${minimumPct}%` }} aria-hidden="true" title={`Batas minimum: ${minimum} kg`} />
             </div>
-            <p className="mt-1 text-xs text-[#18352a]/70 tabular-nums">
-                {allocated.toLocaleString('id-ID', { maximumFractionDigits: 1 })} / {maximum.toLocaleString('id-ID', { maximumFractionDigits: 1 })} kg
+            <p className="mt-1 flex items-center justify-between text-xs text-[#18352a]/70 tabular-nums">
+                <span>{allocated.toLocaleString('id-ID', { maximumFractionDigits: 1 })} / {ideal.toLocaleString('id-ID', { maximumFractionDigits: 1 })} kg</span>
+                <span className="text-[11px] font-medium text-[#18352a]/60">Target ideal</span>
             </p>
             <span className="sr-only">{scaleSegments.map((s) => s.label).join(', ')}</span>
         </div>

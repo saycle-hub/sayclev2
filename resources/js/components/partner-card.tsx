@@ -22,8 +22,12 @@ export const FREQUENCY_LABELS: Record<string, string> = {
     bulanan: 'Bulanan',
 };
 
-export function formatKg(value: string | number): string {
-    return Number(value).toLocaleString('id-ID', { maximumFractionDigits: 1 });
+export function formatKg(value: string | number | null | undefined): string {
+    if (value === null || value === undefined || value === '') return '0';
+    const num = typeof value === 'string' ? parseFloat(value) : value;
+    if (isNaN(num)) return '0';
+    const cleanNum = Math.abs(num) < 0.0001 ? 0 : num;
+    return cleanNum.toLocaleString('id-ID', { maximumFractionDigits: 1 });
 }
 
 /**

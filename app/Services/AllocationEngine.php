@@ -6,6 +6,7 @@ use App\Domain\Grade;
 use App\Models\Allocation;
 use App\Models\ClassificationLot;
 use App\Models\Contract;
+use App\Models\Partner;
 use App\Models\Price;
 use App\Models\Reservation;
 use App\Models\WarehouseMutation;
@@ -24,17 +25,30 @@ class AllocationEngine
      *
      * @return array{week_start: string, grades: array<string, array{status: string, stock_kg: float, allocated_kg: float, held_kg: float, rows: Collection}>}
      */
-    public function run(): array
+    /**
+     * Run daily allocation for every grade and persist results.
+     * Idempotent per allocation_date: rows without active reservations are rebuilt,
+     * committed rows (already backed by reservations) are conserved verbatim.
+     *
+     * @return array{allocation_date: string, week_start: string, grades: array<string, array{status: string, stock_kg: float, allocated_kg: float, held_kg: float, rows: Collection}>}
+     */
+    public function run(?string $date = null): array
     {
-        $weekStart = Carbon::now()->startOfWeek()->toDateString();
+        $targetDate = $date ? Carbon::parse($date) : Carbon::today();
+        $allocationDate = $targetDate->toDateString();
+        $weekStart = $targetDate->copy()->startOfWeek()->toDateString();
 
-        return DB::transaction(function () use ($weekStart) {
+        return DB::transaction(function () use ($allocationDate, $weekStart, $targetDate) {
             $results = [];
             foreach (Contract::GRADES as $grade) {
-                $results[$grade] = $this->runGrade($grade, $weekStart);
+                $results[$grade] = $this->runGrade($grade, $weekStart, $allocationDate, $targetDate);
             }
 
-            return ['week_start' => $weekStart, 'grades' => $results];
+            return [
+                'allocation_date' => $allocationDate,
+                'week_start' => $weekStart,
+                'grades' => $results,
+            ];
         });
     }
 
@@ -45,7 +59,9 @@ class AllocationEngine
      */
     public function totalStock(string $grade): float
     {
-        return round((float) WarehouseMutation::where('grade', $grade)->get()->sum(fn (WarehouseMutation $m) => $this->signedKg($m)), 2);
+        $sum = (float) WarehouseMutation::where('grade', $grade)->get()->sum(fn (WarehouseMutation $m) => $this->signedKg($m));
+
+        return abs($sum) < 0.0001 ? 0.0 : round($sum, 2);
     }
 
     /**
@@ -86,93 +102,152 @@ class AllocationEngine
     }
 
     /**
-     * PRD rules: minimum → ideal → overcapacity (ideal→max) → held visibly.
-     * Fairness decisions (owner, 31-08-2026):
-     * - D1 deficit: proportional to remaining minimum.
-     * - D2 overcapacity headroom: proportional to contract ideal capacity.
-     * - D3 excess beyond every contract maximum: stays in warehouse, surfaced
-     *   as held_kg; never silently dropped, never re-graded.
+     * Daily Allocation rules: minimum → ideal → overcapacity (ideal→max) → held visibly.
+     * Evaluates daily quotas for Harian partners and active delivery day quotas for Mingguan partners.
      */
-    private function runGrade(string $grade, string $weekStart): array
+    private function runGrade(string $grade, string $weekStart, string $allocationDate, Carbon $targetDate): array
     {
         $availableBefore = $this->availableStock($grade);
 
         // Committed allocations (backed by active reservations) survive reruns.
         $committed = Allocation::query()
-            ->whereDate('week_start', $weekStart)
+            ->where(function ($q) use ($allocationDate, $weekStart) {
+                $q->whereDate('allocation_date', $allocationDate)
+                  ->orWhere(function ($q2) use ($weekStart) {
+                      $q2->whereNull('allocation_date')->whereDate('week_start', $weekStart);
+                  });
+            })
             ->where('grade', $grade)
             ->whereHas('reservations', fn ($q) => $q->whereIn('status', self::ACTIVE_RESERVATION_STATUSES))
             ->with('reservations')
             ->get();
+
         $committedByContract = $committed
+            ->whereNotNull('contract_id')
             ->groupBy('contract_id')
             ->map(fn ($group) => (float) $group->flatMap->reservations
                 ->whereIn('status', self::ACTIVE_RESERVATION_STATUSES)
                 ->sum('reserved_kg'));
-        $committedKg = (float) $committedByContract->sum();
 
-        // Replaceable rows from earlier reruns this week are removed.
+        $committedByPartner = $committed
+            ->groupBy('partner_id')
+            ->map(fn ($group) => (float) $group->flatMap->reservations
+                ->whereIn('status', self::ACTIVE_RESERVATION_STATUSES)
+                ->sum('reserved_kg'));
+
+        $committedKg = (float) $committed->flatMap->reservations
+            ->whereIn('status', self::ACTIVE_RESERVATION_STATUSES)
+            ->sum('reserved_kg');
+
+        // Replaceable rows from earlier reruns for today are removed.
         Allocation::query()
-            ->whereDate('week_start', $weekStart)
+            ->where(function ($q) use ($allocationDate, $weekStart) {
+                $q->whereDate('allocation_date', $allocationDate)
+                  ->orWhere(function ($q2) use ($weekStart) {
+                      $q2->whereNull('allocation_date')->whereDate('week_start', $weekStart);
+                  });
+            })
             ->where('grade', $grade)
             ->whereDoesntHave('reservations', fn ($q) => $q->whereIn('status', self::ACTIVE_RESERVATION_STATUSES))
             ->delete();
 
-        // availableStock() already excludes active reservations, so it is the
-        // free unreserved pool. committedKg is used only to shrink per-contract
-        // remaining capacity; subtracting it here would double-count.
         $available = $availableBefore;
+        $periodStart = Carbon::parse($allocationDate);
+
         $contracts = Contract::query()
             ->where('grade', $grade)
             ->where('status', 'active')
             ->orderBy('id')
-            ->get();
-        $periodStart = Carbon::parse($weekStart);
-        $contracts = $contracts->filter(fn (Contract $c) => $c->eligibleWithin($periodStart, $periodStart->copy()->addDays(6)))->values();
+            ->get()
+            ->filter(fn (Contract $c) => $c->isScheduledForDate($targetDate))
+            ->values();
+
+        $nonContractedPartners = Partner::query()
+            ->where('grade_preference', $grade)
+            ->whereDoesntHave('contracts', fn ($q) => $q->where('grade', $grade))
+            ->orderBy('id')
+            ->get()
+            ->filter(fn (Partner $p) => $p->isScheduledForDate($targetDate))
+            ->values();
 
         $rows = collect();
-        $status = 'Tanpa kontrak';
+        $status = 'Tanpa mitra';
 
-        if ($contracts->isNotEmpty()) {
-            // Remaining per-contract capacity after committed allocations.
-            $minRem = $contracts->mapWithKeys(fn (Contract $c) => [$c->id => max(0.0, (float) $c->min_capacity_kg - ($committedByContract[$c->id] ?? 0))]);
-            $idealRem = $contracts->mapWithKeys(fn (Contract $c) => [$c->id => max(0.0, (float) $c->ideal_capacity_kg - ($committedByContract[$c->id] ?? 0))]);
-            $maxRem = $contracts->mapWithKeys(fn (Contract $c) => [$c->id => max(0.0, (float) $c->max_capacity_kg - ($committedByContract[$c->id] ?? 0))]);
+        if ($contracts->isNotEmpty() || $nonContractedPartners->isNotEmpty()) {
+            // Contracted daily capacities
+            $minRem = $contracts->mapWithKeys(fn (Contract $c) => [$c->id => max(0.0, $c->dailyMinKg($targetDate) - ($committedByContract[$c->id] ?? 0))]);
+            $idealRem = $contracts->mapWithKeys(fn (Contract $c) => [$c->id => max(0.0, $c->dailyIdealKg($targetDate) - ($committedByContract[$c->id] ?? 0))]);
+            $maxRem = $contracts->mapWithKeys(fn (Contract $c) => [$c->id => max(0.0, $c->dailyMaxKg($targetDate) - ($committedByContract[$c->id] ?? 0))]);
 
-            $totalMinRem = (float) $minRem->sum();
-            $totalIdealRem = (float) $idealRem->sum();
-            $totalMaxRem = (float) $maxRem->sum();
+            // Non-contracted daily capacities
+            $partnerIdealRem = $nonContractedPartners->mapWithKeys(fn (Partner $p) => [$p->id => max(0.0, $p->dailyIdealKg($targetDate) - ($committedByPartner[$p->id] ?? 0))]);
 
-            if ($available < $totalMinRem) {
+            $totalMinContract = (float) $minRem->sum();
+            $totalIdealContract = (float) $idealRem->sum();
+            $totalIdealNonContract = (float) $partnerIdealRem->sum();
+            $totalIdealAll = $totalIdealContract + $totalIdealNonContract;
+
+            if ($available < $totalMinContract) {
                 $status = 'Defisit';
-                // D1: share the deficit pool proportionally to minimum tier.
+                // Stage 1: Deficit (stock < total minimum contracted demand).
+                // Proportional minimum allocation to contracted partners only; non-contracted get 0.
                 $rows = $this->allocateProportional($contracts, $available, 'minimum', fn (Contract $c) => $minRem[$c->id]);
-            } elseif ($available <= $totalIdealRem) {
-                $status = 'Normal';
-                $rows = $this->allocateNormal($contracts, $available, $minRem, $idealRem);
-            } else {
-                $status = 'Surplus';
-                $rows = $this->allocateNormal($contracts, $totalIdealRem, $minRem, $idealRem);
-                $surplus = round($available - $totalIdealRem, 2);
+            } elseif ($available < $totalIdealAll) {
+                // Stage 2: Stock covers contracted minimums, but is less than total ideal for all partners.
+                // Step A: Fill contracted minimums
+                $minRows = $this->allocateProportional($contracts, $totalMinContract, 'minimum', fn (Contract $c) => $minRem[$c->id]);
+                $rows = $rows->merge($minRows);
 
+                $remStock = round($available - $totalMinContract, 2);
+
+                // Step B: Fill gap from contracted minimum to contracted ideal
+                $contractIdealGap = $contracts->mapWithKeys(fn (Contract $c) => [$c->id => max(0.0, $idealRem[$c->id] - $minRem[$c->id])]);
+                $totalContractIdealGap = (float) $contractIdealGap->sum();
+
+                if ($totalContractIdealGap > 0 && $remStock > 0) {
+                    $cIdealPool = min($remStock, $totalContractIdealGap);
+                    $cIdealRows = $this->allocateProportional($contracts, $cIdealPool, 'ideal', fn (Contract $c) => $contractIdealGap[$c->id]);
+                    $rows = $rows->merge($cIdealRows);
+                    $remStock = round($remStock - $cIdealPool, 2);
+                }
+
+                // Step C: If contracted partners reached ideal and stock remains, fill non-contracted partners up to their ideal capacity
+                if ($remStock > 0 && $totalIdealNonContract > 0) {
+                    $nonContractPool = min($remStock, $totalIdealNonContract);
+                    $nRows = $this->allocateProportionalPartners($nonContractedPartners, $nonContractPool, 'ideal', $partnerIdealRem);
+                    $rows = $rows->merge($nRows);
+                }
+
+                $status = ($available < $totalIdealContract) ? 'Defisit' : 'Normal';
+            } else {
+                // Stage 3: Surplus stock >= total ideal for ALL partners (contracted + non-contracted).
+                $status = 'Surplus';
+
+                // Step A: Full ideal allocation to all contracted partners
+                if ($totalIdealContract > 0) {
+                    $rows = $rows->merge($this->allocateNormal($contracts, $totalIdealContract, $minRem, $idealRem));
+                }
+
+                // Step B: Full ideal allocation to all non-contracted partners
+                if ($totalIdealNonContract > 0) {
+                    $rows = $rows->merge($this->allocateProportionalPartners($nonContractedPartners, $totalIdealNonContract, 'ideal', $partnerIdealRem));
+                }
+
+                // Step C: Distribute surplus beyond ideal among contracted partners proportionally to headroom (ideal -> max)
+                $surplus = round($available - $totalIdealAll, 2);
                 if ($surplus > 0) {
                     $headroom = $contracts->mapWithKeys(fn (Contract $c) => [$c->id => max(0.0, $maxRem[$c->id] - $idealRem[$c->id])]);
                     $totalHeadroom = (float) $headroom->sum();
                     $overcapacityPool = min($surplus, $totalHeadroom);
 
                     if ($overcapacityPool > 0) {
-                        // D2: headroom distributed proportional to ideal capacity,
-                        // capped at each contract's own headroom (a contract can
-                        // never receive beyond its maximum).
                         $rows = $rows->merge($this->allocateOvercapacity($contracts, $overcapacityPool, $headroom));
                     }
-                    // D3: $surplus - $totalHeadroom stays in the warehouse as
-                    // held stock; computed below, never silently dropped.
                 }
             }
         }
 
-        $this->persistAndReserve($rows, $grade, $weekStart);
+        $this->persistAndReserve($rows, $grade, $weekStart, $allocationDate);
 
         $allocated = round((float) $rows->sum('allocated_kg'), 2);
 
@@ -180,8 +255,6 @@ class AllocationEngine
             'status' => $status,
             'stock_kg' => round($this->totalStock($grade), 2),
             'allocated_kg' => round($committedKg + $allocated, 2),
-            // Physical total minus everything this week's allocations bind;
-            // the visible remainder stays in the warehouse (D3).
             'held_kg' => max(0.0, round($this->totalStock($grade) - $committedKg - $allocated, 2)),
             'rows' => $rows,
         ];
@@ -311,7 +384,7 @@ class AllocationEngine
         $weights = $contracts->mapWithKeys(fn (Contract $c) => [$c->id => max(0.0, (float) $weight($c))]);
         $totalWeight = (float) $weights->sum();
 
-        if ($totalWeight <= 0) {
+        if ($pool <= 0.01 || $totalWeight <= 0) {
             return collect();
         }
 
@@ -353,23 +426,72 @@ class AllocationEngine
     }
 
     /**
+     * Share pool proportionally across non-contracted partners weighted by $weights (ideal capacity).
+     */
+    private function allocateProportionalPartners(Collection $partners, float $pool, string $type, Collection $weights): Collection
+    {
+        $totalWeight = (float) $weights->sum();
+        if ($totalWeight <= 0 || $pool <= 0.01) {
+            return collect();
+        }
+
+        $shares = [];
+        $remainingCents = (int) round($pool * 100);
+        foreach ($partners as $p) {
+            $w = max(0.0, (float) ($weights[$p->id] ?? 0));
+            $exact = $pool * 100 * ($w / $totalWeight);
+            $shares[$p->id] = (int) floor($exact);
+            $remainingCents -= $shares[$p->id];
+        }
+        foreach ($partners as $p) {
+            if ($remainingCents <= 0) {
+                break;
+            }
+            $w = max(0.0, (float) ($weights[$p->id] ?? 0));
+            if ($shares[$p->id] < (int) round($w * 100)) {
+                $shares[$p->id]++;
+                $remainingCents--;
+            }
+        }
+
+        return $partners->map(function (Partner $p) use ($type, $shares) {
+            $share = ($shares[$p->id] ?? 0) / 100;
+            if ($share <= 0) {
+                return null;
+            }
+
+            return [
+                'partner_id' => $p->id,
+                'contract_id' => null,
+                'grade' => $p->grade_preference,
+                'source_grade' => $p->grade_preference,
+                'intended_use' => Grade::INTENDED_USES[$p->grade_preference] ?? Grade::INTENDED_USES[Grade::NOT_FIT],
+                'allocated_kg' => $share,
+                'allocation_type' => $type,
+                'status' => 'approved',
+            ];
+        })->filter()->values();
+    }
+
+    /**
      * Persist allocation rows and atomically reserve warehouse lots (FIFO).
      * Reservation is the binding: delivery candidates are built only from
      * reservations, so the same kg cannot be allocated twice. A remainder
      * without lot backing (admin stock adjustment) reserves as a lot-less
      * reservation so conservation still holds.
      */
-    private function persistAndReserve(Collection $rows, string $grade, string $weekStart): void
+    private function persistAndReserve(Collection $rows, string $grade, string $weekStart, string $allocationDate): void
     {
         if ($rows->isEmpty()) {
             return;
         }
 
-        $periodStart = Carbon::parse($weekStart);
-        $periodEnd = $periodStart->copy()->addDays(6);
+        $periodStart = Carbon::parse($allocationDate);
+        $periodEnd = $periodStart->copy();
 
         foreach ($rows as $row) {
             $allocation = Allocation::create($row + [
+                'allocation_date' => $allocationDate,
                 'week_start' => $weekStart,
                 'period_start' => $periodStart->toDateString(),
                 'period_end' => $periodEnd->toDateString(),

@@ -120,9 +120,43 @@ class DeliveryRouteOptimizationService
         ->values();
     }
 
+    private function nearestWarehouse(array $stops): array
+    {
+        $warehouses = Warehouse::where('is_active', true)->get();
+        if ($warehouses->isEmpty()) {
+            return $this->depot();
+        }
+
+        if ($stops === []) {
+            $w = Warehouse::getDefault() ?? $warehouses->first();
+            return ['lat' => (float) $w->latitude, 'lng' => (float) $w->longitude, 'name' => $w->name, 'code' => $w->code];
+        }
+
+        $avgLat = array_sum(array_column($stops, 'lat')) / count($stops);
+        $avgLng = array_sum(array_column($stops, 'lng')) / count($stops);
+
+        $best = $warehouses->first();
+        $bestDist = INF;
+
+        foreach ($warehouses as $w) {
+            $dist = $this->haversineKm((float) $w->latitude, (float) $w->longitude, $avgLat, $avgLng);
+            if ($dist < $bestDist) {
+                $bestDist = $dist;
+                $best = $w;
+            }
+        }
+
+        return [
+            'lat' => (float) $best->latitude,
+            'lng' => (float) $best->longitude,
+            'name' => $best->name,
+            'code' => $best->code,
+        ];
+    }
+
     private function sweepOrder(Collection $points): array
     {
-        $depot = $this->depot();
+        $depot = $this->nearestWarehouse($points->toArray());
 
         return $points
             ->map(function (array $p) use ($depot) {
@@ -136,7 +170,7 @@ class DeliveryRouteOptimizationService
 
     private function nearestNeighborOrder(array $stops): array
     {
-        $depot = $this->depot();
+        $depot = $this->nearestWarehouse($stops);
         $remaining = $stops;
         $ordered = [];
         $current = $depot;
@@ -188,7 +222,7 @@ class DeliveryRouteOptimizationService
 
     private function computeLegs(array $ordered): array
     {
-        $depot = $this->depot();
+        $depot = $this->nearestWarehouse($ordered);
         $points = array_merge([['lat' => $depot['lat'], 'lng' => $depot['lng']]], $ordered);
 
         if (! app()->environment('testing') && count($points) >= 2) {

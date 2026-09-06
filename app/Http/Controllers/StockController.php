@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Allocation;
+use App\Models\Contract;
 use App\Models\FinancialLine;
 use App\Models\Partner;
 use App\Models\Pickup;
@@ -70,12 +71,62 @@ class StockController extends Controller
                 ];
             });
 
+        $weekStart = Carbon::now()->startOfWeek()->toDateString();
+        $today = Carbon::today()->toDateString();
+        $unallocatedStocks = collect(Stock::GRADES)->map(function (string $grade) use ($totals, $weekStart, $today) {
+            $stockKg = (float) ($totals[$grade] ?? 0);
+            $allocatedKg = (float) Allocation::where(fn ($q) => $q->whereDate('allocation_date', $today)->orWhereDate('week_start', $weekStart))
+                ->where('grade', $grade)
+                ->sum('allocated_kg');
+            $unallocatedKg = max(0, $stockKg - $allocatedKg);
+
+            return [
+                'grade' => $grade,
+                'stock_kg' => round($stockKg, 2),
+                'allocated_kg' => round($allocatedKg, 2),
+                'unallocated_kg' => round($unallocatedKg, 2),
+            ];
+        })->filter(fn ($item) => $item['unallocated_kg'] > 0)->values();
+
+        $safeHoldingLimits = [
+            'Layak' => [
+                'max_days' => 2,
+                'target' => 'Pakan Ternak Segar',
+                'risk' => 'Pembusukan & tekstur lembek jika > 48 jam',
+                'badge' => '2 Hari (48 Jam)',
+            ],
+            'Kurang Layak' => [
+                'max_days' => 3,
+                'target' => 'Maggot BSF',
+                'risk' => 'Fermentasi asam berlebih jika > 72 jam',
+                'badge' => '3 Hari (72 Jam)',
+            ],
+            'Tidak Layak' => [
+                'max_days' => 5,
+                'target' => 'Kompos Organik',
+                'risk' => 'Bau menyengat & gas metana jika > 120 jam',
+                'badge' => '5 Hari (120 Jam)',
+            ],
+        ];
+
+        $idealDemands = [];
+        foreach (Stock::GRADES as $grade) {
+            $contractIdeal = (float) Contract::where('status', 'active')->where('grade', $grade)->sum('ideal_capacity_kg');
+            $nonContractIdeal = (float) Partner::whereDoesntHave('contracts', fn ($q) => $q->where('status', 'active'))
+                ->where('grade_preference', $grade)
+                ->sum('ideal_capacity_kg');
+            $idealDemands[$grade] = round($contractIdeal + $nonContractIdeal, 2);
+        }
+
         return Inertia::render('stock/index', [
             'stock' => $stock,
             'entries' => $entries,
             'trend' => $this->trend(),
             'prices' => Price::query()->orderBy('id')->get(['grade', 'buy_price', 'sell_price']),
             'warehouses' => $warehouses,
+            'unallocatedStocks' => $unallocatedStocks,
+            'safeHoldingLimits' => $safeHoldingLimits,
+            'idealDemands' => $idealDemands,
         ]);
     }
 
@@ -123,6 +174,14 @@ class StockController extends Controller
             'kg.max' => 'Jumlah melebihi batas maksimal.',
         ]);
 
+        if ($validated['type'] === 'out') {
+            $engine = app(AllocationEngine::class);
+            $currentStock = $engine->totalStock($validated['grade']);
+            if ((float) $validated['kg'] > $currentStock) {
+                return back()->withErrors(['kg' => "Pengurangan stok ({$validated['kg']} kg) melebihi stok tersedia ({$currentStock} kg)."]);
+            }
+        }
+
         Stock::create($validated);
 
         // Mirror into the canonical warehouse ledger so the allocation engine
@@ -169,15 +228,21 @@ class StockController extends Controller
         $realizedPendapatan = (float) FinancialLine::query()->where('type', 'partner_invoice')->sum('amount');
 
         $weekStart = Carbon::now()->startOfWeek()->toDateString();
-        $hasRun = Allocation::whereDate('week_start', $weekStart)->exists();
+        $today = Carbon::today()->toDateString();
+        $hasRun = Allocation::whereDate('allocation_date', $today)->orWhereDate('week_start', $weekStart)->exists();
         $engine = app(AllocationEngine::class);
-        $allocationStatus = collect(Stock::GRADES)->map(function (string $grade) use ($engine, $weekStart, $hasRun, $totals) {
+        $allocationStatus = collect(Stock::GRADES)->map(function (string $grade) use ($engine, $weekStart, $today, $hasRun, $totals) {
             $stock = (float) ($totals[$grade] ?? 0);
-            $allocated = (float) Allocation::whereDate('week_start', $weekStart)->where('grade', $grade)->sum('allocated_kg');
+            $allocated = (float) Allocation::where(fn ($q) => $q->whereDate('allocation_date', $today)->orWhereDate('week_start', $weekStart))
+                ->where('grade', $grade)
+                ->sum('allocated_kg');
+
+            $totalPickup = (float) \App\Models\ClassificationLot::query()->where('grade', $grade)->sum('kg');
 
             return [
                 'grade' => $grade,
-                'stock_kg' => round($stock, 2),
+                'stock_kg' => abs($stock) < 0.0001 ? 0.0 : round($stock, 2),
+                'total_pickup_kg' => round($totalPickup, 2),
                 'allocated_kg' => round($allocated, 2),
                 'status' => $hasRun ? $engine->gradeStatus($grade, $stock) : 'Belum dijalankan',
                 'held_kg' => $hasRun ? $engine->heldKg($grade, $stock, $allocated) : 0.0,
@@ -190,7 +255,7 @@ class StockController extends Controller
             'recentEntries' => $recentEntries,
             'allocationStatus' => $allocationStatus,
             'stats' => [
-                'total_stock_kg' => round($totalStock, 2),
+                'total_stock_kg' => abs($totalStock) < 0.0001 ? 0.0 : round($totalStock, 2),
                 'active_partners' => Partner::query()->count(),
                 'estimated_revenue' => round($estimatedRevenue, 2),
                 'realized_pendapatan' => round($realizedPendapatan, 2),
@@ -218,20 +283,30 @@ class StockController extends Controller
      */
     private function trend(): Collection
     {
-        $rows = WarehouseMutation::query()
-            ->selectRaw('DATE(occurred_at) as date')
-            ->selectRaw('SUM(kg) as net_kg')
-            ->groupBy(DB::raw('DATE(occurred_at)'))
+        $rows = Pickup::query()
+            ->where('status', 'completed')
+            ->whereNotNull('completed_at')
+            ->selectRaw('DATE(completed_at) as date')
+            ->selectRaw('SUM(actual_total_kg) as total_kg')
+            ->groupBy(DB::raw('DATE(completed_at)'))
             ->orderBy('date')
             ->limit(30)
             ->get();
 
-        $cumulative = 0.0;
+        if ($rows->isEmpty()) {
+            $rows = WarehouseMutation::query()
+                ->where('type', 'receipt')
+                ->selectRaw('DATE(occurred_at) as date')
+                ->selectRaw('SUM(kg) as total_kg')
+                ->groupBy(DB::raw('DATE(occurred_at)'))
+                ->orderBy('date')
+                ->limit(30)
+                ->get();
+        }
 
-        return $rows->map(function ($row) use (&$cumulative) {
-            $cumulative += (float) $row->net_kg;
-
-            return ['date' => $row->date, 'total_kg' => round($cumulative, 2)];
-        })->values();
+        return $rows->map(fn ($row) => [
+            'date' => (string) $row->date,
+            'total_kg' => round((float) $row->total_kg, 2),
+        ])->values();
     }
 }

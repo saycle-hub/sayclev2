@@ -83,6 +83,55 @@ export default function SupplierReportShow({ report }: { report: Report }) {
                             </Badge>
                         </div>
 
+                        {/* Status Lifecycle Progress Stepper */}
+                        <div className="mt-6 rounded-xl border border-[#18352a]/10 bg-gray-50/70 p-4">
+                            <h3 className="text-xs font-bold uppercase tracking-wider text-[#18352a]/60 mb-3">Status Alur Laporan</h3>
+                            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                                {[
+                                    { key: 'submitted', label: '1. Masuk', desc: 'Menunggu Konfirmasi' },
+                                    { key: 'accepted', label: '2. Dikonfirmasi', desc: 'Laporan Diterima' },
+                                    { key: 'in_progress', label: '3. Dalam Perjalanan', desc: 'Penjemputan Driver' },
+                                    { key: 'closed', label: '4. Selesai', desc: 'Sudah Tiba di Gudang' },
+                                ].map((stepItem, sIdx) => {
+                                    const currentIdx = ['submitted', 'under_review', 'Pending review'].includes(report.status)
+                                        ? 0
+                                        : ['accepted', 'pickup_scheduled'].includes(report.status)
+                                        ? 1
+                                        : ['in_progress'].includes(report.status)
+                                        ? 2
+                                        : ['picked_up', 'closed'].includes(report.status)
+                                        ? 3
+                                        : 0;
+
+                                    const isDone = sIdx < currentIdx || (sIdx === currentIdx && ['picked_up', 'closed'].includes(report.status));
+                                    const isCurrent = sIdx === currentIdx && !['picked_up', 'closed'].includes(report.status);
+
+                                    return (
+                                        <div
+                                            key={stepItem.key}
+                                            className={`rounded-lg p-2.5 transition-all border ${
+                                                isDone
+                                                    ? 'border-emerald-300 bg-emerald-50 text-emerald-900'
+                                                    : isCurrent
+                                                    ? 'border-[#2f6848] bg-white text-[#18352a] shadow-sm'
+                                                    : 'border-transparent bg-gray-100 text-gray-400'
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-1.5 font-bold text-xs">
+                                                <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] ${
+                                                    isDone ? 'bg-emerald-600 text-white' : isCurrent ? 'bg-[#2f6848] text-white' : 'bg-gray-300 text-gray-600'
+                                                }`}>
+                                                    {sIdx + 1}
+                                                </span>
+                                                <span>{stepItem.label}</span>
+                                            </div>
+                                            <p className="mt-1 text-[11px] opacity-80 leading-tight">{stepItem.desc}</p>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
                         {report.photo_url && (
                             <img
                                 src={report.photo_url}

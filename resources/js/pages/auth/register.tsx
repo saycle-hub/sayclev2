@@ -33,32 +33,16 @@ interface RegisterForm {
 type CapacityKey = 'min_capacity_kg' | 'ideal_capacity_kg' | 'max_capacity_kg';
 type CapacityErrors = Partial<Record<CapacityKey, string>>;
 
-function validateCapacity(values: Pick<RegisterForm, CapacityKey>) {
+function validateCapacity(values: Pick<RegisterForm, 'ideal_capacity_kg' | 'min_capacity_kg' | 'max_capacity_kg'>) {
     const errors: CapacityErrors = {};
-    const labels: Record<CapacityKey, string> = {
-        min_capacity_kg: 'Minimum',
-        ideal_capacity_kg: 'Ideal',
-        max_capacity_kg: 'Maksimum',
-    };
-    const numbers = {} as Record<CapacityKey, number>;
-
-    (Object.keys(labels) as CapacityKey[]).forEach((key) => {
-        const value = values[key].trim();
-        if (!value) errors[key] = `${labels[key]} wajib diisi.`;
-        else if (!Number.isFinite(Number(value))) errors[key] = `${labels[key]} harus berupa angka.`;
-        else if (Number(value) < 0) errors[key] = `${labels[key]} tidak boleh kurang dari 0.`;
-        else numbers[key] = Number(value);
-    });
-
-    if (!errors.min_capacity_kg && !errors.ideal_capacity_kg && numbers.min_capacity_kg > numbers.ideal_capacity_kg) {
-        errors.min_capacity_kg = 'Minimum tidak boleh lebih besar dari ideal.';
-        errors.ideal_capacity_kg = 'Ideal tidak boleh lebih kecil dari minimum.';
+    const val = (values.ideal_capacity_kg || values.min_capacity_kg || '').trim();
+    if (!val) {
+        errors.ideal_capacity_kg = 'Total kebutuhan pokok wajib diisi.';
+    } else if (!Number.isFinite(Number(val))) {
+        errors.ideal_capacity_kg = 'Total kebutuhan pokok harus berupa angka.';
+    } else if (Number(val) < 0) {
+        errors.ideal_capacity_kg = 'Total kebutuhan pokok tidak boleh kurang dari 0.';
     }
-    if (!errors.ideal_capacity_kg && !errors.max_capacity_kg && numbers.ideal_capacity_kg > numbers.max_capacity_kg) {
-        errors.ideal_capacity_kg = 'Ideal tidak boleh lebih besar dari maksimum.';
-        errors.max_capacity_kg = 'Maksimum tidak boleh lebih kecil dari ideal.';
-    }
-
     return errors;
 }
 
@@ -316,21 +300,44 @@ export default function Register() {
                                             </div>
                                         </div>
 
-                                        <FieldShell label="Kapasitas penerimaan">
-                                            <CapacityInput
-                                                values={data}
-                                                error={capacityError}
-                                                fieldErrors={capacityFieldErrors}
-                                                onChange={(key, value) => {
-                                                    setData(key, value);
-                                                    setCapacityError('');
-                                                    setCapacityFieldErrors({});
-                                                }}
-                                            />
+                                        <FieldShell label={data.frequency === 'harian' ? 'Total Kebutuhan Pokok (kg/hari)' : data.frequency === 'bulanan' ? 'Total Kebutuhan Pokok (kg/bulan)' : 'Total Kebutuhan Pokok (kg/minggu)'}>
+                                            <div className="relative">
+                                                <Input
+                                                    id="ideal_capacity_kg"
+                                                    type="number"
+                                                    min="0"
+                                                    step="any"
+                                                    required
+                                                    value={data.ideal_capacity_kg}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        setData((current) => ({
+                                                            ...current,
+                                                            ideal_capacity_kg: val,
+                                                            min_capacity_kg: val,
+                                                            max_capacity_kg: val,
+                                                        }));
+                                                        setCapacityError('');
+                                                        setCapacityFieldErrors({});
+                                                    }}
+                                                    placeholder="Contoh: 500"
+                                                    className="h-auto rounded-none border-0 border-b-2 border-[#c2c8be] bg-transparent px-0 py-2 text-[18px] leading-[1.6] text-[#191c1c] shadow-none focus-visible:ring-0 focus-visible:border-[#1d3a20]"
+                                                />
+                                            </div>
+                                            <InputError message={capacityFieldErrors.ideal_capacity_kg || errors.ideal_capacity_kg} className="mt-2" />
                                         </FieldShell>
 
                                         <FieldShell label="Frekuensi penerimaan">
-                                            <Select value={data.frequency} onValueChange={(value) => setData('frequency', value)}>
+                                            <Select
+                                                value={data.frequency}
+                                                onValueChange={(value) => {
+                                                    setData((current) => ({
+                                                        ...current,
+                                                        frequency: value,
+                                                        receiving_days: value === 'mingguan' && (current.receiving_days?.length ?? 0) === 0 ? ['monday'] : current.receiving_days,
+                                                    }));
+                                                }}
+                                            >
                                                 <SelectTrigger id="frequency" className="h-auto rounded-none border-0 border-b-2 border-[#c2c8be] bg-transparent px-0 py-2 text-[18px] leading-[1.6] text-[#191c1c] shadow-none focus:ring-0 focus:ring-offset-0">
                                                     <SelectValue placeholder="Pilih frekuensi" />
                                                 </SelectTrigger>
@@ -350,8 +357,8 @@ export default function Register() {
                                         </FieldShell>
 
                                         {data.frequency === 'mingguan' && (
-                                            <FieldShell label="Hari Penerimaan (Pilih Minimal 1)">
-                                                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                            <FieldShell label="Hari Penerimaan (Pilih 1 Hari dalam Seminggu)">
+                                                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-7">
                                                     {[
                                                         ['monday', 'Senin'],
                                                         ['tuesday', 'Selasa'],
@@ -361,23 +368,21 @@ export default function Register() {
                                                         ['saturday', 'Sabtu'],
                                                         ['sunday', 'Minggu'],
                                                     ].map(([dayValue, dayLabel]) => {
-                                                        const checked = data.receiving_days.includes(dayValue);
+                                                        const selectedDay = data.receiving_days?.[0] || 'monday';
+                                                        const isSelected = selectedDay === dayValue;
                                                         return (
-                                                            <label key={dayValue} className="flex items-center gap-2 cursor-pointer text-sm">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={checked}
-                                                                    onChange={(e) => {
-                                                                        if (e.target.checked) {
-                                                                            setData('receiving_days', [...data.receiving_days, dayValue]);
-                                                                        } else {
-                                                                            setData('receiving_days', data.receiving_days.filter((d) => d !== dayValue));
-                                                                        }
-                                                                    }}
-                                                                    className="rounded border-[#c2c8be] text-[#1d3a20] focus:ring-[#1d3a20]"
-                                                                />
-                                                                <span>{dayLabel}</span>
-                                                            </label>
+                                                            <button
+                                                                key={dayValue}
+                                                                type="button"
+                                                                onClick={() => setData('receiving_days', [dayValue])}
+                                                                className={`flex cursor-pointer items-center justify-center rounded-xl border px-3 py-2 text-xs font-bold transition-all ${
+                                                                    isSelected
+                                                                        ? 'border-[#1d3a20] bg-[#1d3a20] text-white shadow-sm ring-2 ring-[#1d3a20]/30'
+                                                                        : 'border-[#c2c8be] bg-white text-[#191c1c] hover:bg-[#e1e3e2]/50'
+                                                                }`}
+                                                            >
+                                                                {dayLabel}
+                                                            </button>
                                                         );
                                                     })}
                                                 </div>

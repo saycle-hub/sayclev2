@@ -219,11 +219,11 @@ class StockManagementTest extends TestCase
 
         $this->actingAs($admin)->get('/stock')->assertInertia(fn ($page) => $page
             ->where('stock.0.total_kg', 0)
-            ->where('trend.0.total_kg', 0));
+            ->where('trend.0.total_kg', 120));
 
         $this->actingAs($admin)->get('/dashboard')->assertInertia(fn ($page) => $page
             ->where('stock.0.total_kg', 0)
-            ->where('trend.0.total_kg', 0)
+            ->where('trend.0.total_kg', 120)
             ->where('stats.total_stock_kg', 0));
     }
 

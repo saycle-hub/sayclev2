@@ -14,8 +14,23 @@ class SupplierReportController extends Controller
     public function index(Request $request): Response
     {
         $tab = $request->query('tab', 'masuk');
+        $selectedDate = $request->query('date', now()->toDateString());
+
+        $applyDateFilter = function ($q) use ($selectedDate) {
+            if ($selectedDate && $selectedDate !== 'all') {
+                $q->where(function ($sub) use ($selectedDate) {
+                    $sub->whereDate('supplier_reports.created_at', $selectedDate)
+                       ->orWhereHas('pickups', function ($p) use ($selectedDate) {
+                           $p->whereDate('scheduled_for', $selectedDate)
+                             ->orWhereDate('created_at', $selectedDate)
+                             ->orWhereDate('completed_at', $selectedDate);
+                       });
+                });
+            }
+        };
 
         $query = SupplierReport::with(['pickup.vehicle', 'pickup.officer']);
+        $applyDateFilter($query);
 
         if ($tab === 'diterima') {
             $query->where(function ($q) {
@@ -39,28 +54,38 @@ class SupplierReportController extends Controller
 
         $reports = $query->latest()->get()->map(fn (SupplierReport $r) => $this->row($r));
 
+        $masukQuery = SupplierReport::whereIn('status', ['submitted', 'under_review', 'Pending review']);
+        $applyDateFilter($masukQuery);
+
+        $diterimaQuery = SupplierReport::where(function ($q) {
+            $q->where('status', 'accepted')
+              ->orWhere(function ($q2) {
+                  $q2->where('status', 'pickup_scheduled')
+                     ->whereDoesntHave('pickups', fn ($p) => $p->whereNotNull('officer_id')->where('status', '!=', 'planned'));
+              });
+        });
+        $applyDateFilter($diterimaQuery);
+
+        $dijemputQuery = SupplierReport::where(function ($q) {
+            $q->whereIn('status', ['in_progress', 'picked_up', 'closed', 'rejected', 'supplier_rejected'])
+              ->orWhere(function ($q2) {
+                  $q2->where('status', 'pickup_scheduled')
+                     ->whereHas('pickups', fn ($p) => $p->whereNotNull('officer_id')->where('status', '!=', 'planned'));
+              });
+        });
+        $applyDateFilter($dijemputQuery);
+
         $counts = [
-            'masuk' => SupplierReport::whereIn('status', ['submitted', 'under_review', 'Pending review'])->count(),
-            'diterima' => SupplierReport::where(function ($q) {
-                $q->where('status', 'accepted')
-                  ->orWhere(function ($q2) {
-                      $q2->where('status', 'pickup_scheduled')
-                         ->whereDoesntHave('pickups', fn ($p) => $p->whereNotNull('officer_id')->where('status', '!=', 'planned'));
-                  });
-            })->count(),
-            'dijemput' => SupplierReport::where(function ($q) {
-                $q->whereIn('status', ['in_progress', 'picked_up', 'closed', 'rejected', 'supplier_rejected'])
-                  ->orWhere(function ($q2) {
-                      $q2->where('status', 'pickup_scheduled')
-                         ->whereHas('pickups', fn ($p) => $p->whereNotNull('officer_id')->where('status', '!=', 'planned'));
-                  });
-            })->count(),
+            'masuk' => $masukQuery->count(),
+            'diterima' => $diterimaQuery->count(),
+            'dijemput' => $dijemputQuery->count(),
         ];
 
         return Inertia::render('supplier-reports/index', [
             'reports' => $reports,
             'activeTab' => $tab,
             'counts' => $counts,
+            'selectedDate' => $selectedDate,
         ]);
     }
 

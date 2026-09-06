@@ -1,7 +1,7 @@
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { ExternalLink, Inbox, CheckCircle2, Truck, MapPin } from 'lucide-react';
+import { ExternalLink, Inbox, CheckCircle2, Truck, MapPin, Calendar } from 'lucide-react';
 import { useState } from 'react';
 import { PaginationBar } from '@/components/ui/pagination-bar';
 import { Badge } from '@/components/ui/badge';
@@ -33,6 +33,7 @@ interface Props {
         diterima: number;
         dijemput: number;
     };
+    selectedDate?: string;
 }
 
 const labels: Record<string, string> = {
@@ -78,7 +79,7 @@ function Status({ value, driver }: { value: string; driver?: string | null }) {
     );
 }
 
-export default function SupplierReportsIndex({ reports = [], activeTab = 'masuk', counts = { masuk: 0, diterima: 0, dijemput: 0 } }: Props) {
+export default function SupplierReportsIndex({ reports = [], activeTab = 'masuk', counts = { masuk: 0, diterima: 0, dijemput: 0 }, selectedDate }: Props) {
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 6;
     const totalPages = Math.ceil(reports.length / itemsPerPage);
@@ -87,6 +88,14 @@ export default function SupplierReportsIndex({ reports = [], activeTab = 'masuk'
         { title: 'Dasbor', href: '/dashboard' },
         { title: 'Laporan Pemasok', href: '/supplier-reports' },
     ];
+
+    const todayStr = new Date().toLocaleDateString('sv-SE');
+    const isToday = selectedDate === todayStr;
+
+    const goToToday = () => {
+        setCurrentPage(1);
+        router.get(route('supplier-reports.index'), { tab: activeTab, date: todayStr }, { preserveState: false });
+    };
 
     const located = reports.filter((r) => r.latitude !== null && r.longitude !== null);
     const depot = located[0]
@@ -103,7 +112,7 @@ export default function SupplierReportsIndex({ reports = [], activeTab = 'masuk'
 
     const switchTab = (tab: 'masuk' | 'diterima' | 'dijemput') => {
         setCurrentPage(1);
-        router.get(route('supplier-reports.index'), { tab }, { preserveState: false });
+        router.get(route('supplier-reports.index'), { tab, date: selectedDate ?? 'all' }, { preserveState: false });
     };
 
     return (
@@ -114,6 +123,60 @@ export default function SupplierReportsIndex({ reports = [], activeTab = 'masuk'
         >
             <Head title="Laporan Pemasok" />
             <main className="min-h-full p-4 text-[#18352a] md:p-6 space-y-6">
+                {/* Date Filter Bar */}
+                <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#8FB996]/35 bg-gradient-to-r from-[#F2F7F3] via-white to-[#F2F7F3] p-4.5 shadow-[0_2px_8px_rgba(17,29,19,0.04)]">
+                    <div className="flex items-center gap-3.5">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#2f6848] text-white shadow-sm">
+                            <Calendar className="h-5 w-5" />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <h3 className="text-sm font-bold text-[#111D13]">Filter Kalender Laporan</h3>
+                                {isToday && (
+                                    <span className="rounded-full bg-[#2f6848]/15 px-2.5 py-0.5 text-[11px] font-extrabold text-[#2f6848]">
+                                        Hari Ini
+                                    </span>
+                                )}
+                            </div>
+                            <p className="mt-0.5 text-xs text-[#709775]">
+                                {selectedDate && selectedDate !== 'all'
+                                    ? `Menampilkan laporan per hari: ${new Date(selectedDate + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`
+                                    : 'Menampilkan seluruh histori laporan (semua tanggal)'}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2.5">
+                        <input
+                            type="date"
+                            value={selectedDate === 'all' ? '' : (selectedDate ?? '')}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                router.get(route('supplier-reports.index'), { tab: activeTab, date: val || 'all' }, { preserveState: false });
+                            }}
+                            className="h-10 rounded-xl border border-[#709775]/40 bg-white px-3.5 py-2 text-sm font-semibold text-[#111D13] shadow-xs hover:border-[#2f6848] focus:border-[#2f6848] focus:ring-2 focus:ring-[#2f6848]/20 focus:outline-none transition-all cursor-pointer"
+                        />
+
+                        <button
+                            type="button"
+                            onClick={goToToday}
+                            className="flex h-10 items-center gap-2 rounded-xl bg-[#2f6848] px-4 text-xs font-bold text-white shadow-sm hover:bg-[#18352a] active:scale-[0.98] transition-all"
+                        >
+                            <Calendar className="h-4 w-4" />
+                            Hari Ini
+                        </button>
+
+                        {selectedDate !== 'all' && (
+                            <button
+                                type="button"
+                                onClick={() => router.get(route('supplier-reports.index'), { tab: activeTab, date: 'all' }, { preserveState: false })}
+                                className="flex h-10 items-center gap-1.5 rounded-xl border border-[#709775]/30 bg-white px-3 text-xs font-semibold text-[#18352a]/80 hover:bg-gray-50 transition-all"
+                            >
+                                Semua Tanggal
+                            </button>
+                        )}
+                    </div>
+                </div>
+
                 {/* 3 Status Category Filter Buttons */}
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                     <button

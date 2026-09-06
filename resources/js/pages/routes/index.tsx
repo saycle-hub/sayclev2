@@ -143,9 +143,9 @@ export default function RoutesIndex({
 
                 {/* Top Notification Bar for Unassigned Capacity Overflow */}
                 {unassigned.length > 0 && (
-                    <div className="flex items-center justify-between gap-3 rounded-2xl border border-[#e88c12]/40 bg-[#e88c12]/10 p-3.5 px-5 text-[#18352a] shadow-sm">
+                    <div className="flex items-center justify-between gap-3 rounded-2xl border border-[#2f6848]/30 bg-[#2f6848]/10 p-3.5 px-5 text-[#18352a] shadow-sm">
                         <div className="flex items-center gap-3">
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#e88c12]/20 text-[#e88c12]">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#2f6848]/20 text-[#2f6848]">
                                 <AlertTriangle className="h-5 w-5" />
                             </div>
                             <div>
@@ -298,7 +298,7 @@ export default function RoutesIndex({
                 <DialogContent className="bg-white text-[#18352a] border border-[#8FB996]/35 max-w-lg">
                     <DialogHeader>
                         <DialogTitle className="text-[#18352a] flex items-center gap-2">
-                            <AlertTriangle className="h-5 w-5 text-[#e88c12]" />
+                            <AlertTriangle className="h-5 w-5 text-[#2f6848]" />
                             {unassigned.length} Titik Penjemputan Melebihi Kapasitas
                         </DialogTitle>
                         <DialogDescription className="text-[#709775]">
@@ -312,7 +312,7 @@ export default function RoutesIndex({
                                     <p className="font-bold text-[#18352a]">{s.contact}</p>
                                     <p className="text-[11px] text-[#709775]">Penjemputan #{s.id}</p>
                                 </div>
-                                <span className="font-mono font-bold text-[#e88c12] bg-[#e88c12]/10 px-2.5 py-1 rounded-lg">
+                                <span className="font-mono font-bold text-[#2f6848] bg-[#2f6848]/10 px-2.5 py-1 rounded-lg">
                                     {fmtKg(s.kg)}
                                 </span>
                             </div>

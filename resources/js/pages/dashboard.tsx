@@ -45,7 +45,8 @@ interface DashboardProps {
 const gradeIcons = [PackageCheck, Package, Package];
 
 function formatKg(value: number): string {
-    return `${value.toLocaleString('id-ID', { maximumFractionDigits: 1 })} kg`;
+    const cleanValue = Math.abs(value) < 0.0001 ? 0 : value;
+    return `${cleanValue.toLocaleString('id-ID', { maximumFractionDigits: 1 })} kg`;
 }
 
 function formatRupiah(value: number): string {
@@ -112,17 +113,17 @@ export default function Dashboard({ stock, trend, recentEntries, allocationStatu
                         <div className="flex items-baseline justify-between gap-3 border-b border-[#8FB996]/25 bg-[#F2F7F3] px-5 py-3.5">
                             <div>
                                 <h2 id="trend-heading" className="text-base font-semibold text-[#111D13]">
-                                    Tren stok kumulatif
+                                    Tren volume pickup harian
                                 </h2>
-                                <p className="text-sm text-[#709775]">30 hari entri terakhir, semua grade.</p>
+                                <p className="text-sm text-[#709775]">Total kg sampah hasil penjemputan per hari.</p>
                             </div>
                             <p className="text-lg font-bold text-[#415D43] tabular-nums">{formatKg(stats.total_stock_kg)}</p>
                         </div>
                         <div className="p-5">
-                            <div className="h-64 w-full" role="img" aria-label="Grafik tren stok kumulatif">
+                            <div className="h-64 w-full" role="img" aria-label="Grafik tren volume pickup harian">
                                 {chartData.length === 0 ? (
                                     <div className="flex h-full items-center justify-center rounded-xl bg-[#F2F7F3] text-sm text-[#111D13]/60">
-                                        Belum ada data stok. Tambahkan penyesuaian pertama dari halaman stok.
+                                        Belum ada data pickup. Lakukan penjemputan sampah pertama dari aplikasi officer.
                                     </div>
                                 ) : (
                                     <ResponsiveContainer width="100%" height="100%">
@@ -137,7 +138,7 @@ export default function Dashboard({ stock, trend, recentEntries, allocationStatu
                                                 tickFormatter={(v: number) => `${v}`}
                                             />
                                             <Tooltip
-                                                formatter={(value) => [formatKg(Number(value)), 'Stok kumulatif']}
+                                                formatter={(value) => [formatKg(Number(value)), 'Volume pickup']}
                                                 contentStyle={{
                                                     backgroundColor: '#ffffff',
                                                     border: '1px solid rgba(78, 112, 83, 0.3)',
@@ -186,9 +187,9 @@ export default function Dashboard({ stock, trend, recentEntries, allocationStatu
                     <div className="flex flex-wrap items-baseline justify-between gap-3 border-b border-[#8FB996]/25 bg-[#F2F7F3] px-5 py-3.5">
                         <div>
                             <h2 id="allocation-heading" className="text-base font-semibold text-[#111D13]">
-                                Status alokasi minggu ini
+                                Status alokasi & penyerapan per grade
                             </h2>
-                            <p className="text-sm text-[#709775]">Defisit / normal / surplus per grade terhadap kontrak aktif.</p>
+                            <p className="text-sm text-[#709775]">Total sampah di-pickup dan status stok terhadap alokasi.</p>
                         </div>
                         <Link
                             href="/allocation"
@@ -204,16 +205,13 @@ export default function Dashboard({ stock, trend, recentEntries, allocationStatu
                                 <div key={row.grade} className="p-5 sm:p-6">
                                     <div className="flex items-center justify-between gap-2">
                                         <GradeBadge grade={row.grade} />
-                                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusStyles[row.status] ?? statusStyles['Belum dijalankan']}`}>
-                                            {row.status}
-                                        </span>
                                     </div>
                                     <p className="mt-3 text-2xl font-bold text-[#18352a] tabular-nums">
-                                        {formatKg(row.stock_kg)}
-                                        <span className="ml-1.5 text-xs font-normal text-[#18352a]/60">stok</span>
+                                        {formatKg(row.total_pickup_kg ?? row.stock_kg)}
+                                        <span className="ml-1.5 text-xs font-normal text-[#18352a]/60">total di-pickup</span>
                                     </p>
                                     <p className="mt-1 text-xs text-[#18352a]/70 tabular-nums">
-                                        {formatKg(row.allocated_kg)} dialokasikan
+                                        Stok sisa: {formatKg(row.stock_kg)} · {formatKg(row.allocated_kg)} dialokasikan
                                         {row.held_kg > 0 && <> · {formatKg(row.held_kg)} ditahan</>}
                                     </p>
                                 </div>

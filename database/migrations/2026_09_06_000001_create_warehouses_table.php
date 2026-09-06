@@ -15,7 +15,7 @@ return new class extends Migration
             $table->text('address');
             $table->decimal('latitude', 10, 7);
             $table->decimal('longitude', 10, 7);
-            $table->decimal('capacity_kg', 12, 2)->default(50000);
+            $table->decimal('capacity_kg', 12, 2)->default(5000);
             $table->boolean('is_active')->default(true);
             $table->boolean('is_default')->default(false);
             $table->text('notes')->nullable();

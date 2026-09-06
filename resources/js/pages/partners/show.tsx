@@ -1,4 +1,3 @@
-import { ContractForm, emptyContractForm, type ContractFormData } from '@/components/contract-form';
 import { ContractList, type ContractRow } from '@/components/contract-list';
 import { GradeBadge } from '@/components/grade-badge';
 import { FREQUENCY_LABELS, formatKg } from '@/components/partner-card';
@@ -10,6 +9,40 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import { ArrowLeft, MapPin, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
+interface SystemPrice {
+    grade: string;
+    buy_price: string | number;
+    sell_price: string | number;
+}
+
+const DAY_LABELS: Record<string, string> = {
+    monday: 'Senin',
+    tuesday: 'Selasa',
+    wednesday: 'Rabu',
+    thursday: 'Kamis',
+    friday: 'Jumat',
+    saturday: 'Sabtu',
+    sunday: 'Minggu',
+};
+
+function getPrimaryDay(days: any): string {
+    if (!days) return 'Senin';
+    let arr: string[] = [];
+    if (Array.isArray(days)) {
+        arr = days;
+    } else if (typeof days === 'string') {
+        try {
+            const parsed = JSON.parse(days);
+            if (Array.isArray(parsed)) arr = parsed;
+            else arr = [days];
+        } catch {
+            arr = [days];
+        }
+    }
+    const day = arr[0] || 'monday';
+    return DAY_LABELS[day] ?? day;
+}
+
 interface PartnerDetail {
     id: number;
     name: string;
@@ -19,37 +52,40 @@ interface PartnerDetail {
     ideal_capacity_kg: string | number;
     max_capacity_kg: string | number;
     frequency: string;
+    receiving_days?: string[];
     contracts: ContractRow[];
 }
 
-export default function PartnerShow({ partner }: { partner: PartnerDetail }) {
-    const [open, setOpen] = useState(false);
+export default function PartnerShow({ partner, systemPrices }: { partner: PartnerDetail; systemPrices?: Record<string, SystemPrice> }) {
     const [deleteOpen, setDeleteOpen] = useState(false);
-    const form = useForm<ContractFormData>(emptyContractForm);
     const deleteForm = useForm({});
+
+    const contracts = partner?.contracts || [];
+    const activeContract = contracts.find((c) => c.status === 'active');
+    const minCap = activeContract ? activeContract.min_capacity_kg : partner?.min_capacity_kg;
+    const idealCap = activeContract ? activeContract.ideal_capacity_kg : partner?.ideal_capacity_kg;
+    const maxCap = activeContract ? activeContract.max_capacity_kg : partner?.max_capacity_kg;
 
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dasbor', href: '/dashboard' },
         { title: 'Mitra', href: '/partners' },
-        { title: partner.name, href: `/partners/${partner.id}` },
+        { title: partner?.name || 'Detail Mitra', href: `/partners/${partner?.id}` },
     ];
 
-    const submit = (e: React.FormEvent) => {
-        e.preventDefault();
-        form.post(`/partners/${partner.id}/contracts`, {
-            preserveScroll: true,
-            onSuccess: () => {
-                setOpen(false);
-                form.reset();
-            },
-        });
-    };
-
     const removePartner = () => {
+        if (!partner?.id) return;
         deleteForm.delete(`/partners/${partner.id}`, {
             onFinish: () => setDeleteOpen(false),
         });
     };
+
+    if (!partner) {
+        return (
+            <AppLayout breadcrumbs={breadcrumbs}>
+                <div className="p-8 text-center text-[#18352a]/70">Data mitra tidak ditemukan.</div>
+            </AppLayout>
+        );
+    }
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -127,24 +163,41 @@ export default function PartnerShow({ partner }: { partner: PartnerDetail }) {
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-4">
-                    {(
-                        [
-                            ['Minimum', partner.min_capacity_kg],
-                            ['Ideal', partner.ideal_capacity_kg],
-                            ['Maksimum', partner.max_capacity_kg],
-                        ] as const
-                    ).map(([label, value]) => (
-                        <div key={label} className="rounded-2xl border border-[#2f6848]/15 bg-white p-5">
-                            <p className="text-sm text-[#18352a]/70">Kapasitas {label.toLowerCase()}</p>
-                            <p className="mt-1 text-xl font-semibold text-[#18352a] tabular-nums">
-                                {formatKg(value)}
-                                <span className="ml-1 text-sm font-medium text-[#18352a]/70">kg/minggu</span>
+                    {activeContract ? (
+                        ([
+                            ['Minimum', minCap],
+                            ['Ideal', idealCap],
+                            ['Maksimum', maxCap],
+                        ] as const).map(([label, value]) => (
+                            <div key={label} className="rounded-2xl border border-[#2f6848]/15 bg-white p-5">
+                                <p className="text-xs font-medium text-[#18352a]/70">Kapasitas {label.toLowerCase()}</p>
+                                <p className="mt-1 text-xl font-semibold text-[#18352a] tabular-nums">
+                                    {formatKg(value)}
+                                    <span className="ml-1 text-xs font-normal text-[#18352a]/60">kg/minggu</span>
+                                </p>
+                            </div>
+                        ))
+                    ) : (
+                        <div className="col-span-3 rounded-2xl border border-[#2f6848]/15 bg-gradient-to-r from-gray-50/80 to-emerald-50/30 p-5">
+                            <div className="flex items-center justify-between">
+                                <p className="text-xs font-bold text-[#18352a]">Total Kebutuhan Pokok Mitra</p>
+                                <span className="rounded-full bg-[#2f6848]/10 px-2.5 py-0.5 text-[11px] font-semibold text-[#2f6848]">Profil Mitra</span>
+                            </div>
+                            <p className="mt-1 text-2xl font-bold text-[#18352a] tabular-nums">
+                                {formatKg(idealCap || 0)}
+                                <span className="ml-1.5 text-xs font-normal text-[#18352a]/70">kg/minggu (Estimasi Kebutuhan)</span>
                             </p>
+                            <p className="mt-1 text-[11px] text-[#18352a]/60">Batasan min & max kapasitas akan aktif setelah kontrak diterbitkan.</p>
                         </div>
-                    ))}
+                    )}
                     <div className="rounded-2xl border border-[#2f6848]/15 bg-white p-5">
-                        <p className="text-sm text-[#18352a]/70">Frekuensi penerimaan</p>
-                        <p className="mt-1 text-xl font-semibold text-[#18352a]">{FREQUENCY_LABELS[partner.frequency] ?? partner.frequency}</p>
+                        <p className="text-xs font-medium text-[#18352a]/70">Frekuensi penerimaan</p>
+                        <p className="mt-1 text-xl font-semibold text-[#18352a]">{FREQUENCY_LABELS[activeContract?.frequency || partner.frequency] ?? partner.frequency}</p>
+                        {(activeContract?.frequency || partner.frequency) === 'mingguan' && (
+                            <p className="mt-1 text-xs font-bold text-[#2f6848]">
+                                Setiap Hari {getPrimaryDay(activeContract?.receiving_days || partner.receiving_days)}
+                            </p>
+                        )}
                     </div>
                 </div>
 
@@ -152,52 +205,22 @@ export default function PartnerShow({ partner }: { partner: PartnerDetail }) {
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
                             <h2 id="contracts-heading" className="text-base font-semibold text-[#18352a]">
-                                Kontrak
+                                Kontrak Kerja Sama Mitra
                             </h2>
-                            <p className="text-sm text-[#18352a]/70">Kapasitas dan harga per grade yang disepakati.</p>
+                            <p className="text-xs text-[#18352a]/70">Atur batasan kapasitas (min/ideal/max) dan harga nego khusus kontrak.</p>
                         </div>
-                        <Dialog open={open} onOpenChange={setOpen}>
-                            <DialogTrigger asChild>
-                                <Button className="min-h-11 bg-[#e88c12] text-[#18352a] hover:bg-[#e88c12]/90 md:min-h-9">
-                                    <Plus className="h-4 w-4" aria-hidden="true" />
-                                    Tambah kontrak
-                                </Button>
-                            </DialogTrigger>
-                            <DialogContent className="max-h-[90vh] overflow-y-auto bg-white">
-                                <DialogHeader>
-                                    <DialogTitle className="text-[#18352a]">Tambah kontrak</DialogTitle>
-                                    <DialogDescription>Kontrak baru langsung berstatus aktif.</DialogDescription>
-                                </DialogHeader>
-                                <form onSubmit={submit} className="space-y-4">
-                                    {Object.keys(form.errors).length > 0 && (
-                                        <div role="alert" className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
-                                            Periksa kembali isian formulir.
-                                        </div>
-                                    )}
-                                    <ContractForm form={form} idPrefix="new-contract" />
-                                    <div className="flex justify-end gap-2">
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            onClick={() => setOpen(false)}
-                                            disabled={form.processing}
-                                            className="min-h-11 md:min-h-9"
-                                        >
-                                            Batal
-                                        </Button>
-                                        <Button
-                                            type="submit"
-                                            disabled={form.processing}
-                                            className="min-h-11 bg-[#2f6848] text-[#f4f3ed] hover:bg-[#18352a] md:min-h-9"
-                                        >
-                                            Simpan kontrak
-                                        </Button>
-                                    </div>
-                                </form>
-                            </DialogContent>
-                        </Dialog>
+                        <Button
+                            asChild
+                            className="min-h-11 bg-[#e88c12] text-[#18352a] font-bold hover:bg-[#e88c12]/90 md:min-h-9"
+                        >
+                            <Link href={`/partners/${partner.id}/contracts/create`}>
+                                <Plus className="h-4 w-4" aria-hidden="true" />
+                                Buat Kontrak Baru
+                            </Link>
+                        </Button>
                     </div>
-                    <ContractList contracts={partner.contracts} partnerName={partner.name} />
+
+                    <ContractList contracts={contracts} partnerName={partner.name} />
                 </section>
             </div>
         </AppLayout>

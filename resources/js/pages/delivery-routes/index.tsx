@@ -55,6 +55,8 @@ interface HorizonDay {
     day_name: string;
     day_short: string;
     is_today: boolean;
+    is_past: boolean;
+    is_future: boolean;
     delivery_count: number;
 }
 
@@ -161,6 +163,9 @@ export default function DeliveryRoutes({
 
     const hasRoutes = totalStops > 0;
 
+    const selectedHorizonDay = scheduleHorizon.find((d) => d.date === selectedDate);
+    const isTodaySelected = selectedHorizonDay ? selectedHorizonDay.is_today : selectedDate === new Date().toLocaleDateString('sv');
+
     return (
         <AppLayout
             breadcrumbs={breadcrumbs}
@@ -175,15 +180,17 @@ export default function DeliveryRoutes({
                         <Truck size={16} aria-hidden />
                         Kendaraan
                     </Link>
-                    <button
-                        type="button"
-                        onClick={runOptimize}
-                        disabled={optimizeForm.processing}
-                        className="inline-flex min-h-11 items-center gap-2 rounded-full bg-white px-5 font-semibold text-[#0f5235] hover:bg-white/90 shadow-sm transition-all disabled:opacity-60"
-                    >
-                        <RotateCw size={16} className={optimizeForm.processing ? 'animate-spin' : ''} aria-hidden />
-                        Optimasi Rute
-                    </button>
+                    {isTodaySelected && (
+                        <button
+                            type="button"
+                            onClick={runOptimize}
+                            disabled={optimizeForm.processing}
+                            className="inline-flex min-h-11 items-center gap-2 rounded-full bg-white px-5 font-semibold text-[#0f5235] hover:bg-white/90 shadow-sm transition-all disabled:opacity-60"
+                        >
+                            <RotateCw size={16} className={optimizeForm.processing ? 'animate-spin' : ''} aria-hidden />
+                            Optimasi Rute
+                        </button>
+                    )}
                 </>
             }
         >
@@ -192,9 +199,9 @@ export default function DeliveryRoutes({
 
                 {/* Top Notification Bar for Unassigned Delivery Capacity Overflow */}
                 {unassignedDeliveries.length > 0 && (
-                    <div className="flex items-center justify-between gap-3 rounded-2xl border border-[#e88c12]/40 bg-[#e88c12]/10 p-3.5 px-5 text-[#18352a] shadow-sm">
+                    <div className="flex items-center justify-between gap-3 rounded-2xl border border-[#2f6848]/30 bg-[#2f6848]/10 p-3.5 px-5 text-[#18352a] shadow-sm">
                         <div className="flex items-center gap-3">
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#e88c12]/20 text-[#e88c12]">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#2f6848]/20 text-[#2f6848]">
                                 <AlertTriangle className="h-5 w-5" />
                             </div>
                             <div>
@@ -229,6 +236,29 @@ export default function DeliveryRoutes({
                         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
                             {scheduleHorizon.map((day) => {
                                 const isSelected = day.date === selectedDate;
+                                const isPast = day.is_past;
+
+                                // Hari yang sudah lewat: tampilkan sebagai disabled span (tidak bisa diklik)
+                                if (isPast) {
+                                    return (
+                                        <span
+                                            key={day.date}
+                                            title={`${day.day_name} — Data historis (terkunci)`}
+                                            aria-label={`${day.day_name} ${day.day_short} — sudah selesai, tidak bisa dinavigasi`}
+                                            className="flex flex-col items-center justify-center rounded-2xl p-3 text-center border border-[#8FB996]/20 bg-[#f5f5f4] text-[#a8a29e] cursor-not-allowed select-none opacity-70"
+                                        >
+                                            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#a8a29e]/80">
+                                                {day.day_name}
+                                            </span>
+                                            <span className="text-sm font-bold mt-0.5 line-through">{day.day_short}</span>
+                                            <span className="mt-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold bg-[#e7e5e4] text-[#78716c]">
+                                                ✓ Selesai
+                                            </span>
+                                        </span>
+                                    );
+                                }
+
+                                // Hari ini & mendatang: bisa diklik
                                 return (
                                     <Link
                                         key={day.date}
@@ -236,13 +266,20 @@ export default function DeliveryRoutes({
                                         className={`flex flex-col items-center justify-center rounded-2xl p-3 text-center border transition-all ${
                                             isSelected
                                                 ? 'border-[#415D43] bg-[#415D43] text-white shadow-md'
-                                                : 'border-[#8FB996]/35 bg-white text-[#111D13] hover:border-[#415D43]/60 hover:bg-[#F2F7F3]'
+                                                : day.is_today
+                                                    ? 'border-[#2f6848]/50 bg-[#eef7f1] text-[#111D13] hover:border-[#415D43]/60 hover:bg-[#e2f0e6] ring-1 ring-[#2f6848]/30'
+                                                    : 'border-[#8FB996]/35 bg-white text-[#111D13] hover:border-[#415D43]/60 hover:bg-[#F2F7F3]'
                                         }`}
                                     >
-                                        <span className={`text-[11px] font-semibold uppercase tracking-wider ${isSelected ? 'text-white/80' : 'text-[#709775]'}`}>
+                                        <span className={`text-[11px] font-semibold uppercase tracking-wider ${
+                                            isSelected ? 'text-white/80' : day.is_today ? 'text-[#2f6848]' : 'text-[#709775]'
+                                        }`}>
                                             {day.day_name}
                                         </span>
                                         <span className="text-sm font-bold mt-0.5">{day.day_short}</span>
+                                        {day.is_today && !isSelected && (
+                                            <span className="mt-1 text-[9px] font-bold text-[#2f6848] uppercase tracking-wide">Hari ini</span>
+                                        )}
                                         {day.delivery_count > 0 ? (
                                             <span className={`mt-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
                                                 isSelected ? 'bg-white/20 text-white' : 'bg-[#415D43]/10 text-[#415D43]'
@@ -473,15 +510,21 @@ export default function DeliveryRoutes({
                         <p className="max-w-md text-xs text-[#18352a]/70">
                             Jalankan optimasi rute untuk mengelompokkan jadwal pengiriman mitra ke armada kendaraan berdasarkan titik koordinat dan kapasitas gudang.
                         </p>
-                        <button
-                            type="button"
-                            onClick={runOptimize}
-                            disabled={optimizeForm.processing}
-                            className="inline-flex min-h-10 items-center gap-2 rounded-full bg-[#2f6848] px-5 text-xs font-bold text-white hover:bg-[#18352a] transition-all shadow-sm disabled:opacity-60 mt-2"
-                        >
-                            <RotateCw size={14} className={optimizeForm.processing ? 'animate-spin' : ''} aria-hidden />
-                            Jalankan Optimasi Rute
-                        </button>
+                        {isTodaySelected ? (
+                            <button
+                                type="button"
+                                onClick={runOptimize}
+                                disabled={optimizeForm.processing}
+                                className="inline-flex min-h-10 items-center gap-2 rounded-full bg-[#2f6848] px-5 text-xs font-bold text-white hover:bg-[#18352a] transition-all shadow-sm disabled:opacity-60 mt-2"
+                            >
+                                <RotateCw size={14} className={optimizeForm.processing ? 'animate-spin' : ''} aria-hidden />
+                                Jalankan Optimasi Rute
+                            </button>
+                        ) : (
+                            <p className="mt-2 text-xs font-semibold text-[#2f6848] bg-[#2f6848]/10 px-3.5 py-1.5 rounded-full">
+                                Optimasi rute pengiriman hanya dapat dijalankan pada tanggal hari ini.
+                            </p>
+                        )}
                     </div>
                 )}
             </div>
@@ -491,7 +534,7 @@ export default function DeliveryRoutes({
                 <DialogContent className="bg-white text-[#18352a] border border-[#8FB996]/35 max-w-lg">
                     <DialogHeader>
                         <DialogTitle className="text-[#18352a] flex items-center gap-2">
-                            <AlertTriangle className="h-5 w-5 text-[#e88c12]" />
+                            <AlertTriangle className="h-5 w-5 text-[#2f6848]" />
                             {unassignedDeliveries.length} Pengiriman Melebihi Kapasitas
                         </DialogTitle>
                         <DialogDescription className="text-[#709775]">

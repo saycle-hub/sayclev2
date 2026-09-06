@@ -21,6 +21,7 @@ class Allocation extends Model
         'allocation_type',
         'status',
         'week_start',
+        'allocation_date',
         'period_start',
         'period_end',
         'notes',
@@ -31,6 +32,7 @@ class Allocation extends Model
         return [
             'allocated_kg' => 'decimal:2',
             'week_start' => 'date',
+            'allocation_date' => 'date',
             'period_start' => 'date',
             'period_end' => 'date',
         ];
