@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
     Area,
     AreaChart,
@@ -18,8 +19,7 @@ export interface TrendPoint {
 
 interface TrendChartProps {
     data: TrendPoint[];
-    /** Which series to plot. */
-    metric: 'kg' | 'pendapatan';
+    metric?: 'kg' | 'pendapatan';
     className?: string;
 }
 
@@ -37,21 +37,48 @@ function formatValue(v: number, metric: 'kg' | 'pendapatan'): string {
 }
 
 /**
- * Weekly trend area chart (recharts) in design-system colors:
- * ink line, green fill. Minimal axes, no legend clutter.
+ * Weekly trend area chart (recharts) with interactive metric switcher (Kg / Pendapatan Rp).
  */
-export function TrendChart({ data, metric, className }: TrendChartProps) {
+export function TrendChart({ data, metric: initialMetric = 'kg', className }: TrendChartProps) {
+    const [metric, setMetric] = useState<'kg' | 'pendapatan'>(initialMetric);
+
     return (
-        <Card className={cn('rounded-2xl border-[#2f6848]/15 bg-white shadow-none', className)}>
-            <CardHeader className="pb-2">
+        <Card className={cn('rounded-2xl border border-[#8FB996]/35 bg-white shadow-[0_2px_8px_rgba(17,29,19,0.04)]', className)}>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-base font-semibold text-[#18352a]">
                     {metric === 'kg' ? 'Tren kg terolah' : 'Tren pendapatan'}
                 </CardTitle>
+                <div className="flex items-center gap-1 rounded-xl bg-[#F2F7F3] p-1 border border-[#8FB996]/25">
+                    <button
+                        type="button"
+                        onClick={() => setMetric('kg')}
+                        className={cn(
+                            'rounded-lg px-3 py-1 text-xs font-semibold transition-all cursor-pointer',
+                            metric === 'kg'
+                                ? 'bg-[#415D43] text-white shadow-xs'
+                                : 'text-[#18352a]/70 hover:text-[#18352a]'
+                        )}
+                    >
+                        Kg Terolah
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setMetric('pendapatan')}
+                        className={cn(
+                            'rounded-lg px-3 py-1 text-xs font-semibold transition-all cursor-pointer',
+                            metric === 'pendapatan'
+                                ? 'bg-[#415D43] text-white shadow-xs'
+                                : 'text-[#18352a]/70 hover:text-[#18352a]'
+                        )}
+                    >
+                        Pendapatan (Rp)
+                    </button>
+                </div>
             </CardHeader>
             <CardContent>
-                <div className="h-64 w-full" role="img" aria-label={metric === 'kg' ? 'Grafik tren kilogram terolah per minggu' : 'Grafik tren pendapatan per minggu'}>
+                <div className="h-64 w-full" role="img" aria-label={metric === 'kg' ? 'Grafik tren kilogram terolah per hari' : 'Grafik tren pendapatan per hari'}>
                     <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+                        <AreaChart data={data} margin={{ top: 20, right: 24, bottom: 12, left: 16 }}>
                             <defs>
                                 <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
                                     <stop offset="0%" stopColor="#2f6848" stopOpacity={0.25} />
@@ -65,21 +92,23 @@ export function TrendChart({ data, metric, className }: TrendChartProps) {
                                 tick={AXIS_STYLE}
                                 axisLine={{ stroke: 'rgba(24, 53, 42, 0.15)' }}
                                 tickLine={false}
+                                tickMargin={10}
                             />
                             <YAxis
                                 tick={AXIS_STYLE}
                                 axisLine={false}
                                 tickLine={false}
-                                width={metric === 'kg' ? 40 : 70}
+                                width={metric === 'kg' ? 84 : 104}
+                                tickMargin={10}
                                 tickFormatter={(v: number) =>
                                     metric === 'kg'
-                                        ? `${v.toLocaleString('id-ID')}`
-                                        : `${Math.round(v / 1000)}rb`
+                                        ? `${v.toLocaleString('id-ID')} kg`
+                                        : `Rp ${Math.round(v / 1000).toLocaleString('id-ID')}rb`
                                 }
                             />
                             <Tooltip
                                 formatter={(value) => [formatValue(Number(value), metric), metric === 'kg' ? 'Kg terolah' : 'Pendapatan']}
-                                labelFormatter={(label) => `Minggu ${weekLabel(String(label))}`}
+                                labelFormatter={(label) => new Date(String(label) + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
                                 contentStyle={{
                                     borderRadius: 12,
                                     border: '1px solid rgba(47, 104, 72, 0.2)',

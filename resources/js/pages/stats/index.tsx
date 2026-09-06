@@ -107,10 +107,10 @@ function QuickLink({ href, title, desc }: { href: string; title: string; desc: s
     return (
         <Link
             href={href}
-            className="block rounded-2xl border border-[#8FB996]/35 bg-white p-5 shadow-[0_2px_8px_rgba(17,29,19,0.04)] transition-colors hover:border-[#709775] focus-visible:ring-2 focus-visible:ring-[#709775] focus-visible:outline-none"
+            className="block rounded-2xl border-none bg-[#415D43] p-6 shadow-sm transition-all hover:bg-[#2A422D] active:scale-[0.99] text-white"
         >
-            <p className="font-semibold text-[#111D13]">{title}</p>
-            <p className="mt-1 text-sm text-[#111D13]/70">{desc}</p>
+            <p className="font-bold text-lg text-white">{title}</p>
+            <p className="mt-1.5 text-sm font-medium text-[#A1CCA5]">{desc}</p>
         </Link>
     );
 }

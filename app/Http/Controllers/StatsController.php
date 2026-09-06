@@ -37,8 +37,78 @@ class StatsController extends Controller
     {
         return Inertia::render('stats/index', [
             'kpi' => $this->kpi(),
-            'trend' => $this->weeklyTrend(),
+            'trend' => $this->dailyTrend(),
         ]);
+    }
+
+    /**
+     * Daily kg (receipts) + pendapatan (partner invoice snapshots) starting
+     * dynamically from the earliest recorded data date to today.
+     *
+     * @return array<int, array{week_start: string, date: string, kg: float, pendapatan: float}>
+     */
+    private function dailyTrend(): array
+    {
+        $earliestReceipt = WarehouseMutation::query()->where('type', 'receipt')->min('occurred_at');
+        $earliestInvoice = FinancialLine::query()->where('type', 'partner_invoice')->min('created_at');
+
+        $dates = array_filter([$earliestReceipt, $earliestInvoice]);
+
+        if (empty($dates)) {
+            $start = Carbon::today();
+        } else {
+            $minDate = min(array_map(fn ($d) => Carbon::parse($d), $dates));
+            $start = $minDate->copy()->startOfDay();
+        }
+
+        $end = Carbon::today();
+        if ($start->greaterThan($end)) {
+            $start = $end->copy();
+        }
+
+        $days = [];
+        $current = $start->copy();
+        while ($current->lessThanOrEqualTo($end)) {
+            $days[$current->toDateString()] = ['kg' => 0.0, 'pendapatan' => 0.0];
+            $current->addDay();
+        }
+
+        if (empty($days)) {
+            $days[$end->toDateString()] = ['kg' => 0.0, 'pendapatan' => 0.0];
+        }
+
+        $receipts = WarehouseMutation::query()
+            ->where('type', 'receipt')
+            ->where('occurred_at', '>=', $start)
+            ->get(['kg', 'occurred_at']);
+        foreach ($receipts as $receipt) {
+            $key = $receipt->occurred_at?->toDateString();
+            if ($key !== null && isset($days[$key])) {
+                $days[$key]['kg'] += (float) $receipt->kg;
+            }
+        }
+
+        $invoices = FinancialLine::query()
+            ->where('type', 'partner_invoice')
+            ->where('created_at', '>=', $start)
+            ->get(['amount', 'created_at']);
+        foreach ($invoices as $invoice) {
+            $key = $invoice->created_at?->toDateString();
+            if ($key !== null && isset($days[$key])) {
+                $days[$key]['pendapatan'] += (float) $invoice->amount;
+            }
+        }
+
+        return collect($days)
+            ->map(fn (array $d, string $dateStr) => [
+                'week_start' => $dateStr,
+                'date' => $dateStr,
+                'kg' => round($d['kg'], 2),
+                'pendapatan' => round($d['pendapatan'], 2),
+            ])
+            ->sortKeys()
+            ->values()
+            ->all();
     }
 
     public function revenue(): Response
@@ -157,49 +227,5 @@ class StatsController extends Controller
         ];
     }
 
-    /**
-     * Weekly kg (receipts) + pendapatan (partner invoice snapshots) over
-     * the last 12 weeks (ISO week starts, zero-filled).
-     *
-     * @return array<int, array{week_start: string, kg: float, pendapatan: float}>
-     */
-    private function weeklyTrend(): array
-    {
-        $start = Carbon::now()->startOfWeek()->subWeeks(11);
 
-        $weeks = [];
-        foreach (range(0, 11) as $i) {
-            $weeks[$start->copy()->addWeeks($i)->toDateString()] = ['kg' => 0.0, 'pendapatan' => 0.0];
-        }
-
-        $receipts = WarehouseMutation::query()
-            ->where('type', 'receipt')
-            ->get(['kg', 'occurred_at']);
-        foreach ($receipts as $receipt) {
-            $key = $receipt->occurred_at?->copy()->startOfWeek()->toDateString();
-            if ($key !== null && isset($weeks[$key])) {
-                $weeks[$key]['kg'] += (float) $receipt->kg;
-            }
-        }
-
-        $invoices = FinancialLine::query()
-            ->where('type', 'partner_invoice')
-            ->get(['amount', 'created_at']);
-        foreach ($invoices as $invoice) {
-            $key = $invoice->created_at?->copy()->startOfWeek()->toDateString();
-            if ($key !== null && isset($weeks[$key])) {
-                $weeks[$key]['pendapatan'] += (float) $invoice->amount;
-            }
-        }
-
-        return collect($weeks)
-            ->map(fn (array $w, string $weekStart) => [
-                'week_start' => $weekStart,
-                'kg' => round($w['kg'], 2),
-                'pendapatan' => round($w['pendapatan'], 2),
-            ])
-            ->sortKeys()
-            ->values()
-            ->all();
-    }
 }
