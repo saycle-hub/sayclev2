@@ -6,7 +6,6 @@ import { createRoot } from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
 import { route as routeFn } from 'ziggy-js';
 import { InstallPrompt } from './components/pwa/install-prompt';
-import { initializeTheme } from './hooks/use-appearance';
 
 declare global {
     const route: typeof routeFn;
@@ -34,6 +33,3 @@ createInertiaApp({
         color: '#4B5563',
     },
 });
-
-// This will set light / dark mode on load...
-initializeTheme();

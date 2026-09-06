@@ -4,8 +4,6 @@
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 
-@custom-variant dark (&:is(.dark *));
-
 @theme {
     --font-sans:
         'Poppins', 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
@@ -68,8 +66,7 @@
     }
 }
 
-:root,
-.dark {
+:root {
     --background: #ffffff;
     --foreground: #111D13;
     --card: #ffffff;

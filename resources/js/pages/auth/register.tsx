@@ -1,6 +1,6 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { LoaderCircle, LocateFixed } from 'lucide-react';
-import { FormEventHandler, useState } from 'react';
+import { FormEventHandler, useEffect, useState } from 'react';
 
 import { CapacityInput } from '@/components/capacity-input';
 import { GradeSelect } from '@/components/grade-select';
@@ -94,6 +94,12 @@ export default function Register() {
         longitude: '',
         overcapacity_terms_accepted: false,
     });
+
+    useEffect(() => {
+        if (errors.name || errors.email || errors.password || errors.password_confirmation) {
+            setStep(1);
+        }
+    }, [errors]);
 
     const captureLocation = () => {
         if (!navigator.geolocation) { setLocationState('error'); setLocationError('Browser tidak mendukung lokasi. Isi koordinat secara manual.'); return; }
@@ -340,12 +346,65 @@ export default function Register() {
                                                     ))}
                                                 </SelectContent>
                                             </Select>
+                                            <InputError message={errors.frequency} className="mt-2" />
                                         </FieldShell>
+
+                                        {data.frequency === 'mingguan' && (
+                                            <FieldShell label="Hari Penerimaan (Pilih Minimal 1)">
+                                                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                                    {[
+                                                        ['monday', 'Senin'],
+                                                        ['tuesday', 'Selasa'],
+                                                        ['wednesday', 'Rabu'],
+                                                        ['thursday', 'Kamis'],
+                                                        ['friday', 'Jumat'],
+                                                        ['saturday', 'Sabtu'],
+                                                        ['sunday', 'Minggu'],
+                                                    ].map(([dayValue, dayLabel]) => {
+                                                        const checked = data.receiving_days.includes(dayValue);
+                                                        return (
+                                                            <label key={dayValue} className="flex items-center gap-2 cursor-pointer text-sm">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={checked}
+                                                                    onChange={(e) => {
+                                                                        if (e.target.checked) {
+                                                                            setData('receiving_days', [...data.receiving_days, dayValue]);
+                                                                        } else {
+                                                                            setData('receiving_days', data.receiving_days.filter((d) => d !== dayValue));
+                                                                        }
+                                                                    }}
+                                                                    className="rounded border-[#c2c8be] text-[#1d3a20] focus:ring-[#1d3a20]"
+                                                                />
+                                                                <span>{dayLabel}</span>
+                                                            </label>
+                                                        );
+                                                    })}
+                                                </div>
+                                                <InputError message={errors.receiving_days} className="mt-2" />
+                                            </FieldShell>
+                                        )}
 
                                         <FieldShell label="Pin lokasi (GPS)"><p className="mb-3 text-sm font-normal leading-6">Lokasi membantu verifikasi alamat dan koordinasi penjemputan. Kami hanya menerima koordinat perangkat ini, tanpa mencari alamat otomatis.</p><button type="button" onClick={captureLocation} disabled={locationState === 'loading'} className="mb-3 inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#1d3a20] px-4 text-sm font-semibold text-white disabled:opacity-60"><LocateFixed size={17} />{locationState === 'loading' ? 'Mengambil lokasi…' : 'Gunakan lokasi saya'}</button>{locationState === 'success' && <p className="mb-3 text-sm text-[#1d3a20]">Lokasi berhasil diambil. Anda masih dapat mengubah koordinat.</p>}<div className="grid gap-3 sm:grid-cols-2"><div><Label htmlFor="latitude" className="text-xs normal-case tracking-normal">Latitude (-90 sampai 90)</Label><Input id="latitude" type="number" step="any" min="-90" max="90" required value={data.latitude} onChange={(e) => { setData('latitude', e.target.value); setLocationError(''); }} placeholder="-6.200000" /><InputError message={errors.latitude} /></div><div><Label htmlFor="longitude" className="text-xs normal-case tracking-normal">Longitude (-180 sampai 180)</Label><Input id="longitude" type="number" step="any" min="-180" max="180" required value={data.longitude} onChange={(e) => { setData('longitude', e.target.value); setLocationError(''); }} placeholder="106.816666" /><InputError message={errors.longitude} /></div></div>{locationError && <p role="alert" className="mt-2 text-sm text-red-600">{locationError}</p>}</FieldShell>
                                         <FieldShell label="Preferensi grade">
                                             {data.frequency === 'bulanan' && <><Label htmlFor="monthly_receiving_day">Tanggal penerimaan setiap bulan (1–28)</Label><Input id="monthly_receiving_day" type="number" min="1" max="28" value={data.monthly_receiving_day} onChange={(e) => setData('monthly_receiving_day', e.target.value)} required /><InputError message={errors.monthly_receiving_day} /></>}
                                             <GradeSelect id="grade_preference" ariaLabelledBy="grade-label" value={data.grade_preference} onChange={(value) => setData('grade_preference', value)} />
+                                            <InputError message={errors.grade_preference} className="mt-2" />
+                                        </FieldShell>
+
+                                        <FieldShell label="Persetujuan Overcapacity">
+                                            <label className="flex items-start gap-3 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={data.overcapacity_terms_accepted}
+                                                    onChange={(e) => setData('overcapacity_terms_accepted', e.target.checked)}
+                                                    className="mt-1 h-4 w-4 rounded border-[#c2c8be] text-[#1d3a20] focus:ring-[#1d3a20]"
+                                                />
+                                                <span className="text-sm leading-snug text-[#424841]">
+                                                    Saya memahami dan menyetujui syarat serta ketentuan penanganan kelebihan kapasitas (overcapacity).
+                                                </span>
+                                            </label>
+                                            <InputError message={errors.overcapacity_terms_accepted} className="mt-2" />
                                         </FieldShell>
                                     </div>
                                 </div>
