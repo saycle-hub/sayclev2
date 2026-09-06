@@ -7,6 +7,7 @@ use App\Http\Controllers\ContractController;
 use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\DeliveryRouteController;
 use App\Http\Controllers\OfficerController;
+use App\Http\Controllers\LandingController;
 use App\Http\Controllers\PartnerController;
 use App\Http\Controllers\PartnerPortalController;
 use App\Http\Controllers\PriceController;
@@ -21,9 +22,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-Route::get('/', function () {
-    return Inertia::render('welcome');
-})->name('home');
+Route::get('/', LandingController::class)->name('home');
 
 Route::get('/lapor', [SaleController::class, 'create'])->name('report.create');
 Route::post('/lapor', [SaleController::class, 'store'])->middleware('throttle:10,1')->name('report.store');
