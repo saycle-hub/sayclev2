@@ -2,6 +2,7 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import { FormEvent, useState } from 'react';
 
 import InputError from '@/components/input-error';
+import Waves from '@/components/Waves';
 
 interface LoginForm {
     email: string;
@@ -40,13 +41,13 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                     Kembali ke halaman utama
                 </Link>
                 <div className="flex min-h-screen w-full lg:h-full lg:min-h-0">
-                    <section className="relative hidden items-center justify-center overflow-hidden bg-white p-10 lg:flex lg:h-full lg:w-1/2">
-                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,_var(--tw-gradient-stops))] from-[#c9ecc6] to-transparent opacity-20" />
-                        <div className="absolute right-0 top-0 h-[500px] w-[500px] -translate-y-1/2 translate-x-1/3 rounded-full bg-[#cdebc5]/30 blur-3xl" />
-                        <div className="absolute bottom-0 left-0 h-[400px] w-[400px] -translate-x-1/4 translate-y-1/3 rounded-full bg-[#adcfab]/40 blur-3xl" />
+                    <section className="relative hidden items-center justify-center overflow-hidden bg-[#2f6848] p-10 text-[#f4f3ed] lg:flex lg:h-full lg:w-1/2">
+                        <Waves className="pointer-events-none opacity-25 motion-reduce:opacity-10" lineColor="#d7e6c9" waveAmpX={24} waveAmpY={12} aria-hidden="true" />
+                        <div className="absolute inset-0 bg-[#18352a]/20" aria-hidden="true" />
                         <div className="relative z-10 w-full max-w-[30rem] text-center">
-                            <h1 className="mb-4 font-['Space_Grotesk'] text-[30px] font-semibold leading-[1.2] tracking-[-0.01em] text-[#07240c]">Siklus Pangan Berkelanjutan.</h1>
-                            <p className="mx-auto max-w-md font-[Inter] text-[17px] font-normal leading-[1.55] text-[#424841]">Platform logistik pintar untuk mengurangi sisa makanan dan mengoptimalkan distribusi menuju ekonomi sirkular.</p>
+                            <p className="mb-6 text-xs font-bold uppercase tracking-[.24em] text-[#c9dfb5]">Circular dispatch · Indonesia</p>
+                            <h1 className="mb-4 font-['Space_Grotesk'] text-[30px] font-semibold leading-[1.2] tracking-[-0.01em] text-[#f4f3ed]">Siklus Pangan Berkelanjutan.</h1>
+                            <p className="mx-auto max-w-md font-[Inter] text-[17px] font-normal leading-[1.55] text-[#e4eedf]">Platform logistik pintar untuk mengurangi sisa makanan dan mengoptimalkan distribusi menuju ekonomi sirkular.</p>
                         </div>
                     </section>
 
