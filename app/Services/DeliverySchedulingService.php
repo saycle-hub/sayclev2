@@ -16,9 +16,7 @@ class DeliverySchedulingService
 {
     public function schedule(CarbonInterface $date): int
     {
-        $contracts = Contract::query()->where('status', 'active')->whereDate('start_date', '<=', $date)
-            ->where(fn ($q) => $q->whereNull('end_date')->orWhereDate('end_date', '>=', $date))->get()
-            ->filter(fn (Contract $c) => $this->recurs($c, $date));
+        $contracts = Contract::query()->get()->filter(fn (Contract $c) => $c->eligibleOn($date));
         $count = 0;
         foreach ($contracts->groupBy('partner_id') as $partnerId => $group) {
             $delivery = DB::transaction(function () use ($partnerId, $group, $date) {
@@ -29,7 +27,7 @@ class DeliverySchedulingService
                     $d->contracts()->syncWithoutDetaching($group->pluck('id'));
                 }
 
-return $d;
+                return $d;
             });
             // Fase 6: turn reserved allocations into concrete delivery lines.
             $this->buildCandidateLines($delivery);
@@ -111,16 +109,6 @@ return $d;
         });
     }
 
-    private function recurs(Contract $c, CarbonInterface $date): bool
-    {
-        return match ($c->frequency) {
-            'harian' => true,
-            'mingguan' => in_array(strtolower($date->englishDayOfWeek), array_map('strtolower', is_array($c->receiving_days) ? $c->receiving_days : []), true),
-            'bulanan' => $date->day === (int) $c->monthly_day && $c->monthly_day >= 1 && $c->monthly_day <= 28,
-            default => false,
-        };
-    }
-
     public function assign(Delivery $delivery, ?int $vehicleId, ?int $officerId, array $lines): DeliveryTrip
     {
         return DB::transaction(function () use ($delivery, $vehicleId, $officerId, $lines) {
@@ -131,7 +119,8 @@ return $d;
             if ($match) {
                 return $match;
             }
-            if (in_array($delivery->status, ['assigned', 'in_transit', 'delivered', 'failed', 'cancelled'], true)) {
+            if (in_array($delivery->status, ['in_transit', 'delivered', 'failed', 'cancelled'], true)
+                || ($delivery->status === 'assigned' && ! $delivery->lines()->whereHas('reservation', fn ($q) => $q->where('status', 'partially_delivered'))->exists())) {
                 abort(422, 'Delivery lifecycle forbids new trip.');
             }
             if (! $vehicleId || ! $officerId) {
@@ -143,7 +132,7 @@ return $d;
             $pendingByReservation = [];
             $kg = 0;
             foreach ($lines as $id => $requested) {
-                $line = $delivery->lines()->whereKey($id)->lockForUpdate()->whereHas('reservation', fn ($q) => $q->where('status', 'reserved'))->firstOrFail();
+                $line = $delivery->lines()->whereKey($id)->lockForUpdate()->whereHas('reservation', fn ($q) => $q->whereIn('status', ['reserved', 'partially_delivered']))->firstOrFail();
                 $reservation = $line->reservation()->lockForUpdate()->firstOrFail();
                 $allocation = $reservation->allocation()->lockForUpdate()->firstOrFail();
                 if ((int) $allocation->partner_id !== (int) $delivery->partner_id || ! $delivery->contracts()->whereKey($allocation->contract_id)->exists()) {
@@ -178,13 +167,13 @@ return $d;
             foreach ($remaining as $id => $qty) {
                 $trip->lines()->create(['delivery_line_id' => $id, 'planned_kg' => $qty]);
             }
-            $total = (float) $delivery->lines()->whereHas('reservation', fn ($q) => $q->where('status', 'reserved'))->sum('kg');
+            $total = (float) $delivery->lines()->whereHas('reservation', fn ($q) => $q->whereIn('status', ['reserved', 'partially_delivered']))->sum('kg');
             $covered = (float) $delivery->trips()->whereNotIn('status', ['cancelled'])->with('lines')->get()->flatMap->lines->sum('planned_kg');
             if ($covered + 0.00001 >= $total) {
                 $delivery->update(['status' => 'assigned']);
             }
 
-return $trip;
+            return $trip;
         });
     }
 }

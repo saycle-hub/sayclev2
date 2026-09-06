@@ -2,9 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Models\Allocation;
 use App\Models\Contract;
+use App\Models\Delivery;
 use App\Models\Partner;
+use App\Models\Reservation;
 use App\Models\User;
+use App\Models\Vehicle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -198,6 +202,36 @@ class PartnerContractManagementTest extends TestCase
         // Hard delete via action.
         $this->actingAs($this->admin())->post("/contracts/{$contract->id}/action", ['action' => 'delete']);
         $this->assertDatabaseMissing('contracts', ['id' => $contract->id]);
+    }
+
+    public function test_contract_transition_releases_only_undispatched_reservations(): void
+    {
+        $partner = Partner::create($this->validPartnerPayload());
+        $contract = $partner->contracts()->create($this->validContractPayload());
+        $allocation = Allocation::create(['partner_id' => $partner->id, 'contract_id' => $contract->id, 'grade' => 'Layak', 'allocated_kg' => 10, 'allocation_type' => 'minimum', 'status' => 'approved', 'week_start' => '2026-01-01']);
+        $unused = Reservation::create(['allocation_id' => $allocation->id, 'grade' => 'Layak', 'intended_use' => 'feed', 'reserved_kg' => 4, 'status' => 'reserved', 'reserved_at' => now()]);
+        $used = Reservation::create(['allocation_id' => $allocation->id, 'grade' => 'Layak', 'intended_use' => 'feed', 'reserved_kg' => 6, 'status' => 'partially_delivered', 'reserved_at' => now()]);
+        $vehicle = Vehicle::create(['name' => 'Truck', 'capacity_kg' => 10, 'is_active' => true]);
+        $officer = User::factory()->create(['role' => 'officer']);
+        $delivery = Delivery::create(['partner_id' => $partner->id, 'contract_id' => $contract->id, 'service_date' => '2026-09-01', 'status' => 'assigned', 'scheduled_for' => '2026-09-01']);
+        $line = $delivery->lines()->create(['reservation_id' => $used->id, 'grade' => 'Layak', 'intended_use' => 'feed', 'kg' => 6]);
+        $delivery->trips()->create(['vehicle_id' => $vehicle->id, 'officer_id' => $officer->id, 'planned_kg' => 6, 'status' => 'planned'])->lines()->create(['delivery_line_id' => $line->id, 'planned_kg' => 6]);
+
+        $this->actingAs($this->admin())->post("/contracts/{$contract->id}/action", ['action' => 'cancel'])->assertRedirect();
+        $this->assertSame('released', $unused->fresh()->status);
+        $this->assertSame('partially_delivered', $used->fresh()->status);
+        $this->assertDatabaseHas('delivery_lines', ['id' => $line->id]);
+    }
+
+    public function test_contract_delete_rejects_lineage_and_allows_unused_contract(): void
+    {
+        $partner = Partner::create($this->validPartnerPayload());
+        $used = $partner->contracts()->create($this->validContractPayload());
+        Allocation::create(['partner_id' => $partner->id, 'contract_id' => $used->id, 'grade' => 'Layak', 'allocated_kg' => 1, 'allocation_type' => 'minimum', 'status' => 'approved', 'week_start' => '2026-01-01']);
+        $this->actingAs($this->admin())->post("/contracts/{$used->id}/action", ['action' => 'delete'])->assertStatus(409);
+        $unused = $partner->contracts()->create($this->validContractPayload());
+        $this->actingAs($this->admin())->post("/contracts/{$unused->id}/action", ['action' => 'delete'])->assertRedirect();
+        $this->assertDatabaseMissing('contracts', ['id' => $unused->id]);
     }
 
     public function test_admin_can_view_global_contracts_index(): void

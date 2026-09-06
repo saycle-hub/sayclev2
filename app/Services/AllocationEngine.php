@@ -45,11 +45,7 @@ class AllocationEngine
      */
     public function totalStock(string $grade): float
     {
-        $receipts = (float) WarehouseMutation::query()->where('type', 'receipt')->where('grade', $grade)->sum('kg');
-        $stockOuts = (float) WarehouseMutation::query()->where('type', 'stock_out')->where('grade', $grade)->sum('kg');
-        $adjustments = (float) WarehouseMutation::query()->where('type', 'adjustment')->where('grade', $grade)->sum('kg');
-
-        return round($receipts - $stockOuts + $adjustments, 2);
+        return round((float) WarehouseMutation::where('grade', $grade)->get()->sum(fn (WarehouseMutation $m) => $this->signedKg($m)), 2);
     }
 
     /**
@@ -59,14 +55,15 @@ class AllocationEngine
      */
     public function availableStock(string $grade): float
     {
-        $adjustments = (float) WarehouseMutation::query()
-            ->where('type', 'adjustment')->where('grade', $grade)->sum('kg');
+        $nonLotStock = (float) WarehouseMutation::whereNull('classification_lot_id')->where('grade', $grade)->get()->sum(fn (WarehouseMutation $m) => $this->signedKg($m));
+        $nonLotReserved = (float) Reservation::whereNull('classification_lot_id')->whereIn('status', self::ACTIVE_RESERVATION_STATUSES)
+            ->where('grade', $grade)->sum('reserved_kg');
         $lotBacked = (float) ClassificationLot::query()
             ->where('grade', $grade)
             ->get()
             ->sum(fn (ClassificationLot $lot) => $this->lotRemaining($lot));
 
-        return round(max(0.0, $lotBacked) + $adjustments, 2);
+        return round(max(0.0, $lotBacked) + max(0.0, $nonLotStock - $nonLotReserved), 2);
     }
 
     /**
@@ -107,12 +104,12 @@ class AllocationEngine
             ->whereHas('reservations', fn ($q) => $q->whereIn('status', self::ACTIVE_RESERVATION_STATUSES))
             ->with('reservations')
             ->get();
-        $committedByPartner = $committed
-            ->groupBy('partner_id')
+        $committedByContract = $committed
+            ->groupBy('contract_id')
             ->map(fn ($group) => (float) $group->flatMap->reservations
                 ->whereIn('status', self::ACTIVE_RESERVATION_STATUSES)
                 ->sum('reserved_kg'));
-        $committedKg = (float) $committedByPartner->sum();
+        $committedKg = (float) $committedByContract->sum();
 
         // Replaceable rows from earlier reruns this week are removed.
         Allocation::query()
@@ -130,15 +127,17 @@ class AllocationEngine
             ->where('status', 'active')
             ->orderBy('id')
             ->get();
+        $periodStart = Carbon::parse($weekStart);
+        $contracts = $contracts->filter(fn (Contract $c) => $c->eligibleWithin($periodStart, $periodStart->copy()->addDays(6)))->values();
 
         $rows = collect();
         $status = 'Tanpa kontrak';
 
         if ($contracts->isNotEmpty()) {
             // Remaining per-contract capacity after committed allocations.
-            $minRem = $contracts->mapWithKeys(fn (Contract $c) => [$c->id => max(0.0, (float) $c->min_capacity_kg - ($committedByPartner[$c->partner_id] ?? 0))]);
-            $idealRem = $contracts->mapWithKeys(fn (Contract $c) => [$c->id => max(0.0, (float) $c->ideal_capacity_kg - ($committedByPartner[$c->partner_id] ?? 0))]);
-            $maxRem = $contracts->mapWithKeys(fn (Contract $c) => [$c->id => max(0.0, (float) $c->max_capacity_kg - ($committedByPartner[$c->partner_id] ?? 0))]);
+            $minRem = $contracts->mapWithKeys(fn (Contract $c) => [$c->id => max(0.0, (float) $c->min_capacity_kg - ($committedByContract[$c->id] ?? 0))]);
+            $idealRem = $contracts->mapWithKeys(fn (Contract $c) => [$c->id => max(0.0, (float) $c->ideal_capacity_kg - ($committedByContract[$c->id] ?? 0))]);
+            $maxRem = $contracts->mapWithKeys(fn (Contract $c) => [$c->id => max(0.0, (float) $c->max_capacity_kg - ($committedByContract[$c->id] ?? 0))]);
 
             $totalMinRem = (float) $minRem->sum();
             $totalIdealRem = (float) $idealRem->sum();
@@ -244,7 +243,7 @@ class AllocationEngine
             $passAllocated = 0.0;
             $capped = false;
             foreach ($open as $c) {
-                $proportional = round($passPool * ($weights[$c->id] / $totalWeight), 2);
+                $proportional = floor($passPool * 100 * ($weights[$c->id] / $totalWeight)) / 100;
                 $share = min($proportional, $headroom[$c->id]);
                 if ($share <= 0) {
                     continue;
@@ -267,7 +266,27 @@ class AllocationEngine
 
             $remaining = round($remaining - $passAllocated, 2);
             if (! $capped) {
-                break; // proportional distribution consumed the pool
+                foreach ($open as $c) {
+                    if ($remaining <= 0.00001) {
+                        break;
+                    }
+                    $used = (float) $rows->where('contract_id', $c->id)->sum('allocated_kg');
+                    $extra = min(0.01, $remaining, max(0.0, $headroom[$c->id] - $used));
+                    if ($extra > 0) {
+                        $rows->push([
+                            'partner_id' => $c->partner_id,
+                            'contract_id' => $c->id,
+                            'grade' => $c->grade,
+                            'source_grade' => $c->grade,
+                            'intended_use' => $c->intended_use ?? (Grade::INTENDED_USES[$c->grade] ?? Grade::INTENDED_USES[Grade::NOT_FIT]),
+                            'allocated_kg' => $extra,
+                            'allocation_type' => 'overcapacity',
+                            'status' => 'approved',
+                        ]);
+                        $remaining = round($remaining - $extra, 2);
+                    }
+                }
+                break;
             }
 
             // Remove capped contracts (and any with no headroom left) and
@@ -296,8 +315,25 @@ class AllocationEngine
             return collect();
         }
 
-        return $contracts->map(function (Contract $c) use ($pool, $type, $weights, $totalWeight) {
-            $share = round($pool * ($weights[$c->id] / $totalWeight), 2);
+        $shares = [];
+        $remainingCents = (int) round($pool * 100);
+        foreach ($contracts as $c) {
+            $exact = $pool * 100 * ($weights[$c->id] / $totalWeight);
+            $shares[$c->id] = (int) floor($exact);
+            $remainingCents -= $shares[$c->id];
+        }
+        foreach ($contracts as $c) {
+            if ($remainingCents <= 0) {
+                break;
+            }
+            if ($shares[$c->id] < (int) round((float) $weight($c) * 100)) {
+                $shares[$c->id]++;
+                $remainingCents--;
+            }
+        }
+
+        return $contracts->map(function (Contract $c) use ($type, $shares) {
+            $share = $shares[$c->id] / 100;
 
             if ($share <= 0) {
                 return null;
@@ -383,17 +419,31 @@ class AllocationEngine
             $remaining = round($remaining - $take, 2);
         }
 
+        $nonLotAvailable = (float) WarehouseMutation::whereNull('classification_lot_id')->where('grade', $allocation->grade)
+            ->get()->sum(fn (WarehouseMutation $m) => $this->signedKg($m));
+        $nonLotReserved = (float) Reservation::whereNull('classification_lot_id')
+            ->where('grade', $allocation->grade)->whereIn('status', self::ACTIVE_RESERVATION_STATUSES)->sum('reserved_kg');
+        $remaining = min($remaining, max(0.0, $nonLotAvailable - $nonLotReserved));
         if ($remaining > 0.00001) {
             Reservation::create([
                 'allocation_id' => $allocation->id,
                 'classification_lot_id' => null,
                 'grade' => $allocation->grade,
                 'intended_use' => $allocation->intended_use,
-                'reserved_kg' => $remaining,
+                'reserved_kg' => min($remaining, $nonLotAvailable),
                 'status' => 'reserved',
                 'reserved_at' => now(),
             ]);
         }
+    }
+
+    private function signedKg(WarehouseMutation $mutation): float
+    {
+        return match ($mutation->type) {
+            'receipt' => abs((float) $mutation->kg),
+            'stock_out' => -abs((float) $mutation->kg),
+            default => (float) $mutation->kg,
+        };
     }
 
     /**
@@ -413,15 +463,18 @@ class AllocationEngine
      */
     public function gradeStatus(string $grade, float $stock): string
     {
-        $demand = (float) Contract::query()->where('grade', $grade)->where('status', 'active')->sum('min_capacity_kg');
-        $activeContractCount = Contract::query()->where('grade', $grade)->where('status', 'active')->count();
+        $weekStart = Carbon::now()->startOfWeek();
+        $eligible = Contract::query()->where('grade', $grade)->get()
+            ->filter(fn (Contract $c) => $c->eligibleWithin($weekStart, $weekStart->copy()->addDays(6)));
+        $demand = (float) $eligible->sum('min_capacity_kg');
+        $activeContractCount = $eligible->count();
 
         if ($activeContractCount === 0) {
             return 'Tanpa kontrak';
         }
 
-        $ideal = (float) Contract::query()->where('grade', $grade)->where('status', 'active')->sum('ideal_capacity_kg');
-        $maxima = (float) Contract::query()->where('grade', $grade)->where('status', 'active')->sum('max_capacity_kg');
+        $ideal = (float) $eligible->sum('ideal_capacity_kg');
+        $maxima = (float) $eligible->sum('max_capacity_kg');
 
         return match (true) {
             $stock < $demand => 'Defisit',
