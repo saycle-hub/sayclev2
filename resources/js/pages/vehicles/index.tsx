@@ -52,16 +52,16 @@ export default function VehiclesIndex({ vehicles }: { vehicles: Vehicle[] }) {
     };
 
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
+        <AppLayout
+            breadcrumbs={breadcrumbs}
+            title="Kendaraan"
+            description="Kelola armada untuk pengambilan limbah sayur."
+        >
             <Head title="Kendaraan" />
-            <div className="flex h-full flex-1 flex-col gap-6 bg-[#f4f3ed] p-4 md:p-6">
-                <div>
-                    <h1 className="text-2xl font-semibold tracking-tight text-[#18352a]">Kendaraan</h1>
-                    <p className="mt-1 text-sm text-[#18352a]/70">Kelola armada untuk pengambilan limbah sayur.</p>
-                </div>
+            <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
 
                 {/* Add form */}
-                <form onSubmit={submitCreate} className="flex flex-wrap items-end gap-3 rounded-2xl border border-[#2f6848]/15 bg-white p-4">
+                <form onSubmit={submitCreate} className="flex flex-wrap items-end gap-3 rounded-2xl border border-[#8FB996]/35 bg-white p-5 shadow-[0_2px_8px_rgba(17,29,19,0.04)]">
                     <div className="flex-1">
                         <Label htmlFor="v-name">Nama kendaraan</Label>
                         <Input
@@ -69,7 +69,7 @@ export default function VehiclesIndex({ vehicles }: { vehicles: Vehicle[] }) {
                             value={createForm.data.name}
                             onChange={(e) => createForm.setData('name', e.target.value)}
                             placeholder="Pickup L300"
-                            className="mt-1 min-h-11"
+                            className="mt-1 min-h-11 focus:border-[#709775] focus:ring-[#709775]/30"
                         />
                     </div>
                     <div className="w-40">
@@ -82,13 +82,13 @@ export default function VehiclesIndex({ vehicles }: { vehicles: Vehicle[] }) {
                             value={createForm.data.capacity_kg}
                             onChange={(e) => createForm.setData('capacity_kg', e.target.value)}
                             placeholder="500"
-                            className="mt-1 min-h-11"
+                            className="mt-1 min-h-11 focus:border-[#709775] focus:ring-[#709775]/30"
                         />
                     </div>
                     <Button
                         type="submit"
                         disabled={createForm.processing}
-                        className="min-h-11 bg-[#2f6848] text-[#f4f3ed] hover:bg-[#18352a] focus-visible:ring-2 focus-visible:ring-[#e88c12] focus-visible:outline-none"
+                        className="min-h-11 bg-[#415D43] text-white hover:bg-[#344B36]"
                     >
                         <Plus size={16} className="mr-1" aria-hidden />
                         Tambah
@@ -96,10 +96,10 @@ export default function VehiclesIndex({ vehicles }: { vehicles: Vehicle[] }) {
                 </form>
 
                 {/* Table */}
-                <div className="overflow-hidden rounded-2xl border border-[#2f6848]/15 bg-white">
+                <div className="overflow-hidden rounded-2xl border border-[#8FB996]/35 bg-white shadow-[0_2px_8px_rgba(17,29,19,0.04)]">
                     <Table>
                         <TableHeader>
-                            <TableRow>
+                            <TableRow className="border-b border-[#8FB996]/25 bg-[#F2F7F3] hover:bg-[#F2F7F3] [&>th]:text-[#111D13] [&>th]:font-semibold">
                                 <TableHead>Nama</TableHead>
                                 <TableHead className="text-right">Kapasitas</TableHead>
                                 <TableHead className="text-center">Status</TableHead>

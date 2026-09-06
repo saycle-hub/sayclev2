@@ -52,15 +52,13 @@ interface AllocationRow {
 
 export default function PartnerOverview({ partner, stats, contract, allocations = [] }: Props) {
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
+        <AppLayout
+            breadcrumbs={breadcrumbs}
+            title={partner ? `Selamat datang, ${partner.name}` : 'Dasbor Mitra'}
+            description="Portal mitra SayCle — Ringkasan alokasi, pengiriman, dan tagihan."
+        >
             <Head title="Dasbor Mitra" />
-            <div className="flex h-full flex-1 flex-col gap-6 bg-[#f4f3ed] p-4 md:p-6">
-                <div>
-                    <p className="text-xs font-semibold uppercase tracking-[.2em] text-[#2f6848]">Portal mitra SayCle</p>
-                    <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[#18352a]">
-                        {partner ? `Selamat datang, ${partner.name}` : 'Dasbor Mitra'}
-                    </h1>
-                </div>
+            <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
 
                 <section aria-label="Ringkasan" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <StatusCard icon={Clock} label="Pengiriman menunggu" value={stats?.pending ?? 0} />
@@ -111,23 +109,23 @@ export default function PartnerOverview({ partner, stats, contract, allocations 
                         </Card>
                     )}
 
-                    <Card className="rounded-2xl border-[#2f6848]/15 bg-[#2f6848] text-white shadow-none">
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-base font-semibold">Aksi cepat</CardTitle>
+                    <Card className="rounded-2xl border-0 bg-[#415D43] text-white shadow-[0_2px_8px_rgba(17,29,19,0.08)]">
+                        <CardHeader className="pb-2 border-b border-white/15 bg-black/10 rounded-t-2xl">
+                            <CardTitle className="text-base font-semibold text-white">Aksi cepat</CardTitle>
                         </CardHeader>
-                        <CardContent className="flex flex-col gap-3 sm:flex-row lg:flex-col">
-                            <Button asChild className="min-h-11 bg-[#e88c12] text-[#18352a] hover:bg-[#e88c12]/90 focus-visible:ring-2 focus-visible:ring-[#e88c12] focus-visible:outline-none">
+                        <CardContent className="flex flex-col gap-3 sm:flex-row lg:flex-col pt-4">
+                            <Button asChild className="min-h-11 bg-white text-[#415D43] font-semibold hover:bg-white/90 focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none">
                                 <Link href="/partner/deliveries">Lihat pengiriman</Link>
                             </Button>
                             <Button
                                 asChild
                                 variant="outline"
-                                className="min-h-11 border-white/40 bg-transparent text-white hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-[#e88c12] focus-visible:outline-none"
+                                className="min-h-11 border-white/40 bg-white/10 text-white hover:bg-white hover:text-[#415D43] focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
                             >
                                 <Link href="/partner/billing">Cek tagihan</Link>
                             </Button>
                         </CardContent>
-                        <p className="px-6 pb-6 text-sm text-white/75">
+                        <p className="px-6 pb-6 text-sm text-[#A1CCA5]">
                             Tinjau status setoran terbaru dan rincian tagihan Anda.
                         </p>
                         {partner?.grade_preference && (
@@ -152,14 +150,14 @@ function StatusCard({ icon: Icon, label, value, unit, isCurrency = false }: {
         : value.toLocaleString('id-ID', { maximumFractionDigits: 1 });
 
     return (
-        <Card className="rounded-2xl border-[#2f6848]/15 bg-white shadow-none">
+        <Card className="rounded-2xl border border-[#8FB996]/35 bg-white shadow-[0_2px_8px_rgba(17,29,19,0.04)]">
             <CardContent className="flex items-start gap-4 p-5">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#2f6848]/10 text-[#2f6848]">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#A1CCA5]/30 text-[#415D43]">
                     <Icon className="h-5 w-5" aria-hidden="true" />
                 </div>
                 <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-[#18352a]/70">{label}</p>
-                    <p className="mt-1 truncate text-2xl font-semibold tracking-tight text-[#18352a] tabular-nums">
+                    <p className="text-sm font-medium text-[#111D13]/70">{label}</p>
+                    <p className="mt-1 truncate text-2xl font-semibold tracking-tight text-[#111D13] tabular-nums">
                         {formatted}
                         {unit && !isCurrency ? ` ${unit}` : ''}
                     </p>

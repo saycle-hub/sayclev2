@@ -1,14 +1,14 @@
 import { cn } from '@/lib/utils';
 import { SharedData } from '@/types';
 import { usePage } from '@inertiajs/react';
-import { CheckCircle2, CircleAlert, X } from 'lucide-react';
+import { CheckCircle2, AlertCircle, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-const DISMISS_MS = 6000;
+const DISMISS_MS = 5000;
 
 /**
- * Global flash banner for Inertia `flash.success` / `flash.error` shared props.
- * Announced via aria-live and auto-dismissed after a short delay.
+ * Mobile-optimized floating popup toast notification for Inertia `flash.success` / `flash.error`.
+ * Rendered floating at top of screen with backdrop blur, shadow, and smooth animation.
  */
 export function FlashBanner() {
     const { flash } = usePage<SharedData>().props;
@@ -29,23 +29,42 @@ export function FlashBanner() {
 
     if (!message || dismissed === message) return null;
 
-    const Icon = isSuccess ? CheckCircle2 : CircleAlert;
+    const Icon = isSuccess ? CheckCircle2 : AlertCircle;
 
     return (
-        <div aria-live="polite" className="px-4 pt-4 md:px-6">
+        <div 
+            aria-live="assertive" 
+            className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-md pointer-events-auto transition-all duration-300 ease-out animate-in fade-in slide-in-from-top-4"
+        >
             <div
                 className={cn(
-                    'flex items-start gap-3 rounded-xl border px-4 py-3 text-sm',
-                    isSuccess ? 'border-[#2f6848]/30 bg-[#2f6848]/10 text-[#18352a]' : 'border-red-300 bg-red-50 text-red-800',
+                    'flex items-center gap-3.5 rounded-2xl p-4 shadow-2xl backdrop-blur-md border border-white/20 text-white',
+                    isSuccess
+                        ? 'bg-[#18352a]/95 text-white shadow-emerald-950/20'
+                        : 'bg-red-900/95 text-white shadow-red-950/20',
                 )}
             >
-                <Icon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                <p className="flex-1 font-medium">{message}</p>
+                <div
+                    className={cn(
+                        'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-inner',
+                        isSuccess ? 'bg-[#2f6848] text-emerald-200' : 'bg-red-800 text-red-100',
+                    )}
+                >
+                    <Icon className="h-5 w-5" aria-hidden="true" />
+                </div>
+                <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-widest opacity-75">
+                        {isSuccess ? 'Notifikasi Sukses' : 'Peringatan Sistem'}
+                    </p>
+                    <p className="text-xs sm:text-sm font-bold leading-snug text-white mt-0.5">
+                        {message}
+                    </p>
+                </div>
                 <button
                     type="button"
                     onClick={() => setDismissed(message)}
                     aria-label="Tutup notifikasi"
-                    className="rounded-sm p-1 opacity-70 transition-opacity hover:opacity-100 focus-visible:ring-2 focus-visible:ring-[#e88c12] focus-visible:outline-none"
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white opacity-80 transition-opacity hover:bg-white/20 hover:opacity-100 active:scale-95 focus-visible:outline-none"
                 >
                     <X className="h-4 w-4" aria-hidden="true" />
                 </button>

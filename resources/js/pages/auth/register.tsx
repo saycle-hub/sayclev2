@@ -135,7 +135,7 @@ export default function Register() {
                 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
             </Head>
 
-            <main className="flex min-h-screen flex-col bg-[#f9f9f8] font-[Inter] text-[#191c1c] antialiased md:flex-row">
+            <main className="flex min-h-screen flex-col bg-white font-[Inter] text-[#191c1c] antialiased md:flex-row">
                 <aside className="relative hidden w-1/3 min-w-[320px] max-w-[480px] overflow-hidden bg-[#1d3a20] text-white md:flex md:flex-col md:justify-between">
                     <div className="absolute inset-0 z-0 bg-[#1d3a20]/80" />
                     <div className="relative z-10 flex h-full flex-col p-12">
@@ -301,7 +301,7 @@ export default function Register() {
                                             </div>
                                         </FieldShell>
 
-                                        <div className="rounded-lg border border-[#c2c8be] bg-[#f3f4f3] p-3">
+                                        <div className="rounded-lg border border-[#c2c8be] bg-white p-3">
                                             <div className="flex items-start gap-3">
                                                 <span className="material-symbols-outlined mt-0.5 text-[#424841]">info</span>
                                                 <p className="text-[14px] font-medium leading-[1.2] tracking-[0.02em] text-[#424841]">

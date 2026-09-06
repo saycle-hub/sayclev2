@@ -36,15 +36,13 @@ function formatRupiah(value: number): string {
 
 export default function StatsIndex({ kpi, trend }: Props) {
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
+        <AppLayout
+            breadcrumbs={breadcrumbs}
+            title="Statistik"
+            description="Ringkasan pendapatan, pengeluaran, dan dampak pengolahan sampah."
+        >
             <Head title="Statistik" />
-            <div className="flex h-full flex-1 flex-col gap-6 bg-[#f4f3ed] p-4 md:p-6">
-                <div>
-                    <h1 className="text-2xl font-semibold tracking-tight text-[#18352a]">Statistik</h1>
-                    <p className="mt-1 text-sm text-[#18352a]/70">
-                        Ringkasan pendapatan, pengeluaran, dan dampak pengolahan sampah.
-                    </p>
-                </div>
+            <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
 
                 {/* KPI grid */}
                 <section aria-label="Ringkasan" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -81,20 +79,20 @@ function KpiCard({ icon: Icon, label, value, tone = 'default' }: {
     tone?: 'default' | 'positive' | 'negative';
 }) {
     return (
-        <Card className="rounded-2xl border-[#2f6848]/15 bg-white shadow-none">
+        <Card className="rounded-2xl border border-[#8FB996]/35 bg-white shadow-[0_2px_8px_rgba(17,29,19,0.04)]">
             <CardContent className="flex items-start gap-4 p-5">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#2f6848]/10 text-[#2f6848]">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#A1CCA5]/30 text-[#415D43]">
                     <Icon className="h-5 w-5" aria-hidden="true" />
                 </div>
                 <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-[#18352a]/70">{label}</p>
+                    <p className="text-sm font-medium text-[#111D13]/70">{label}</p>
                     <p
                         className={
                             tone === 'positive'
-                                ? 'mt-1 truncate text-2xl font-semibold tracking-tight text-[#2f6848] tabular-nums'
+                                ? 'mt-1 truncate text-2xl font-semibold tracking-tight text-[#415D43] tabular-nums'
                                 : tone === 'negative'
                                     ? 'mt-1 truncate text-2xl font-semibold tracking-tight text-red-700 tabular-nums'
-                                    : 'mt-1 truncate text-2xl font-semibold tracking-tight text-[#18352a] tabular-nums'
+                                    : 'mt-1 truncate text-2xl font-semibold tracking-tight text-[#111D13] tabular-nums'
                         }
                     >
                         {value}
@@ -109,10 +107,10 @@ function QuickLink({ href, title, desc }: { href: string; title: string; desc: s
     return (
         <Link
             href={href}
-            className="block rounded-2xl border border-[#2f6848]/15 bg-white p-5 transition-colors hover:border-[#2f6848]/40 focus-visible:ring-2 focus-visible:ring-[#e88c12] focus-visible:outline-none"
+            className="block rounded-2xl border border-[#8FB996]/35 bg-white p-5 shadow-[0_2px_8px_rgba(17,29,19,0.04)] transition-colors hover:border-[#709775] focus-visible:ring-2 focus-visible:ring-[#709775] focus-visible:outline-none"
         >
-            <p className="font-semibold text-[#18352a]">{title}</p>
-            <p className="mt-1 text-sm text-[#18352a]/70">{desc}</p>
+            <p className="font-semibold text-[#111D13]">{title}</p>
+            <p className="mt-1 text-sm text-[#111D13]/70">{desc}</p>
         </Link>
     );
 }

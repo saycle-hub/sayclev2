@@ -33,7 +33,21 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(match ($request->user()->role) { 'officer' => route('officer.dashboard', absolute: false), 'partner' => route('partner.index', absolute: false), default => route('dashboard', absolute: false) });
+        $user = $request->user();
+        $target = match ($user->role) {
+            'officer' => route('officer.dashboard', absolute: false),
+            'partner' => route('partner.index', absolute: false),
+            default => route('dashboard', absolute: false),
+        };
+
+        // Clear intended URL if non-admin user has an admin route stored in session intended,
+        // preventing 403 Forbidden page after login.
+        $intended = $request->session()->get('url.intended');
+        if ($user->role !== 'admin' && $intended && ! str_contains($intended, '/officer') && ! str_contains($intended, '/partner')) {
+            $request->session()->forget('url.intended');
+        }
+
+        return redirect()->intended($target);
     }
 
     /**

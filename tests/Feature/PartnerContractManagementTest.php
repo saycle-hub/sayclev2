@@ -125,7 +125,7 @@ class PartnerContractManagementTest extends TestCase
 
         $this->actingAs($this->admin())
             ->put("/partners/{$partner->id}", $this->validPartnerPayload(['name' => 'Nama Baru', 'frequency' => 'harian']))
-            ->assertRedirect("/partners/{$partner->id}");
+            ->assertRedirect('/partners');
 
         $this->assertDatabaseHas('partners', ['id' => $partner->id, 'name' => 'Nama Baru', 'frequency' => 'harian']);
 

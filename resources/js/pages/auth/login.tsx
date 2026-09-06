@@ -34,13 +34,13 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
                 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
             </Head>
-            <main className="relative flex min-h-screen w-full items-center justify-center bg-[#f8faf5] font-[Inter] text-[16px] font-normal leading-[1.5] text-[#191c1a] antialiased lg:h-screen lg:min-h-0 lg:overflow-hidden">
-                <Link href={route('home')} className="absolute left-6 top-6 z-20 inline-flex items-center gap-2 rounded-[12px] border border-[#c2c8be] bg-[#f8faf5] px-4 py-3 text-[13px] font-semibold text-[#07240c] transition-colors hover:bg-[#f2f4f0]">
+            <main className="relative flex min-h-screen w-full items-center justify-center bg-white font-[Inter] text-[16px] font-normal leading-[1.5] text-[#191c1a] antialiased lg:h-screen lg:min-h-0 lg:overflow-hidden">
+                <Link href={route('home')} className="absolute left-6 top-6 z-20 inline-flex items-center gap-2 rounded-[12px] border border-[#c2c8be] bg-white px-4 py-3 text-[13px] font-semibold text-[#07240c] transition-colors hover:bg-white">
                     <span className="material-symbols-outlined text-[18px]">arrow_back</span>
                     Kembali ke halaman utama
                 </Link>
                 <div className="flex min-h-screen w-full lg:h-full lg:min-h-0">
-                    <section className="relative hidden items-center justify-center overflow-hidden bg-[#f2f4f0] p-10 lg:flex lg:h-full lg:w-1/2">
+                    <section className="relative hidden items-center justify-center overflow-hidden bg-white p-10 lg:flex lg:h-full lg:w-1/2">
                         <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,_var(--tw-gradient-stops))] from-[#c9ecc6] to-transparent opacity-20" />
                         <div className="absolute right-0 top-0 h-[500px] w-[500px] -translate-y-1/2 translate-x-1/3 rounded-full bg-[#cdebc5]/30 blur-3xl" />
                         <div className="absolute bottom-0 left-0 h-[400px] w-[400px] -translate-x-1/4 translate-y-1/3 rounded-full bg-[#adcfab]/40 blur-3xl" />
@@ -50,7 +50,7 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                         </div>
                     </section>
 
-                    <section className="flex w-full items-center justify-center bg-[#f8faf5] p-6 sm:p-10 lg:w-1/2 lg:p-8">
+                    <section className="flex w-full items-center justify-center bg-white p-6 sm:p-10 lg:w-1/2 lg:p-8">
                         <div className="w-full max-w-md">
                             <Link href={route('home')} className="mb-5 flex items-center gap-2">
                                 <span className="material-symbols-outlined text-[#07240c] [font-size:32px] [font-variation-settings:'FILL'_1]">eco</span>

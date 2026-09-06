@@ -74,7 +74,7 @@ export default function PartnerDeliveries({ deliveries }: Props) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Pengiriman" />
-            <div className="flex h-full flex-1 flex-col gap-6 bg-[#f4f3ed] p-4 md:p-6">
+            <div className="flex h-full flex-1 flex-col gap-6 bg-white p-4 md:p-6">
                 <div>
                     <h1 className="text-2xl font-semibold tracking-tight text-[#18352a]">Pengiriman</h1>
                     <p className="mt-1 text-sm text-[#18352a]/70">

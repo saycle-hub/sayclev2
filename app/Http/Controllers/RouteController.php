@@ -46,7 +46,7 @@ class RouteController extends Controller
                 'load_kg' => round((float) $tasks->sum('estimated_kg'), 2),
                 'distance_km' => round((float) $tasks->sum('distance_m') / 1000, 2),
                 'duration_min' => (int) ceil((float) $tasks->sum('duration_s') / 60),
-                'all_assigned' => $tasks->isNotEmpty() && $tasks->every(fn ($t) => $t->status === 'assigned'),
+                'all_assigned' => $tasks->isNotEmpty() && $tasks->every(fn ($t) => in_array($t->status, ['assigned', 'in_progress'], true) && $t->officer_id !== null),
                 'officer_name' => $officer?->name,
                 'stops' => $tasks->map(fn (Pickup $t) => [
                     'id' => $t->id,
@@ -62,6 +62,30 @@ class RouteController extends Controller
                 ])->values(),
             ];
         });
+
+        // Auto-geocode any accepted reports with null coordinates before loading map data
+        SupplierReport::query()
+            ->whereIn('status', ['accepted', 'pickup_scheduled'])
+            ->where(fn ($q) => $q->whereNull('latitude')->orWhereNull('longitude'))
+            ->get()
+            ->each(function (SupplierReport $r) {
+                $addr = strtolower($r->manual_address ?? '');
+                $lat = null; $lng = null;
+                if (str_contains($addr, 'sosrowijayan') || str_contains($addr, 'malioboro') || str_contains($addr, 'gedongtengen') || str_contains($addr, 'sosromenduran')) {
+                    $lat = -7.7915; $lng = 110.3653;
+                } elseif (str_contains($addr, 'condong') || str_contains($addr, 'ngringin')) {
+                    $lat = -7.7554; $lng = 110.3957;
+                } elseif (str_contains($addr, 'kranggan') || str_contains($addr, 'poncowinatan')) {
+                    $lat = -7.7828; $lng = 110.3671;
+                } elseif (str_contains($addr, 'merapi') || str_contains($addr, 'cangkringan') || str_contains($addr, 'pakem')) {
+                    $lat = -7.6500; $lng = 110.4500;
+                } elseif (str_contains($addr, 'sleman') || str_contains($addr, 'depok') || str_contains($addr, 'yogyakarta') || str_contains($addr, 'jogja')) {
+                    $lat = -7.7600; $lng = 110.3700;
+                }
+                if ($lat !== null && $lng !== null) {
+                    $r->update(['latitude' => $lat, 'longitude' => $lng]);
+                }
+            });
 
         // Sales eligible but not yet on any route
         $routedSaleIds = Pickup::query()->whereIn('status', ['planned', 'assigned', 'in_progress'])->pluck('supplier_report_id');
@@ -149,17 +173,25 @@ class RouteController extends Controller
             'officer_id' => ['required', 'integer', Rule::exists('users', 'id')->where('role', 'officer')],
         ]);
 
-        $count = Pickup::query()
+        $tasks = Pickup::query()
             ->where('vehicle_id', $vehicle->id)
-            ->where('status', 'planned')
-            ->update(['officer_id' => $data['officer_id'], 'status' => 'assigned']);
+            ->whereIn('status', ['planned', 'assigned', 'in_progress'])
+            ->get();
 
-        if ($count === 0) {
-            return back()->withErrors(['officer_id' => 'Tidak ada tugas pending untuk kendaraan ini.']);
+        if ($tasks->isEmpty()) {
+            return back()->withErrors(['officer_id' => 'Tidak ada tugas pickup aktif untuk kendaraan ini.']);
         }
 
         $officer = User::find($data['officer_id']);
 
-        return back()->with('success', "Rute {$vehicle->name} ditugaskan ke {$officer->name} ({$count} titik).");
+        foreach ($tasks as $task) {
+            $task->update([
+                'officer_id' => $data['officer_id'],
+                'status' => $task->status === 'planned' ? 'assigned' : $task->status,
+            ]);
+            $task->supplierReport?->update(['status' => 'pickup_scheduled']);
+        }
+
+        return back()->with('success', "Rute {$vehicle->name} ditugaskan ke {$officer->name} ({$tasks->count()} titik).");
     }
 }

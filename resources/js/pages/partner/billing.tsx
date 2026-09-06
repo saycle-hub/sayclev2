@@ -42,15 +42,13 @@ function formatRupiah(value: number): string {
 
 export default function PartnerBilling({ breakdown, grandTotal, totalKg }: Props) {
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
+        <AppLayout
+            breadcrumbs={breadcrumbs}
+            title="Tagihan"
+            description="Rincian tagihan dari pengiriman yang telah diterima, dengan harga terkunci saat serah-terima."
+        >
             <Head title="Tagihan" />
-            <div className="flex h-full flex-1 flex-col gap-6 bg-[#f4f3ed] p-4 md:p-6">
-                <div>
-                    <h1 className="text-2xl font-semibold tracking-tight text-[#18352a]">Tagihan</h1>
-                    <p className="mt-1 text-sm text-[#18352a]/70">
-                        Rincian tagihan dari pengiriman yang telah diterima, dengan harga terkunci saat serah-terima.
-                    </p>
-                </div>
+            <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
 
                 <BillingSummary grandTotal={grandTotal} totalKg={totalKg} />
 
@@ -67,7 +65,7 @@ export default function PartnerBilling({ breakdown, grandTotal, totalKg }: Props
                             <div className="overflow-x-auto">
                                 <Table>
                                     <TableHeader>
-                                        <TableRow className="bg-[#f4f3ed] hover:bg-[#f4f3ed]">
+                                        <TableRow className="bg-white hover:bg-white">
                                             <TableHead>Grade</TableHead>
                                             <TableHead>Bobot</TableHead>
                                             <TableHead>Harga/kg</TableHead>

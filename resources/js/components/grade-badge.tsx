@@ -6,7 +6,7 @@ export type Grade = 'Layak' | 'Kurang Layak' | 'Tidak Layak';
 const gradeStyles: Record<Grade, string> = {
     Layak: 'border-transparent bg-[#2f6848] text-[#f4f3ed] hover:bg-[#2f6848]/90',
     'Kurang Layak': 'border-transparent bg-[#e88c12] text-[#18352a] hover:bg-[#e88c12]/90',
-    'Tidak Layak': 'border-transparent bg-[#6b4f2e] text-[#f4f3ed] hover:bg-[#6b4f2e]/90',
+    'Tidak Layak': 'border-transparent bg-[#18352a] text-[#f4f3ed] hover:bg-[#18352a]/90',
 };
 
 export function GradeBadge({ grade, className }: { grade: string; className?: string }) {

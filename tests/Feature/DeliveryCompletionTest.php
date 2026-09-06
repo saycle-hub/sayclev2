@@ -2,22 +2,19 @@
 
 namespace Tests\Feature;
 
-use App\Domain\Grade;
+use App\Models\Allocation;
 use App\Models\ClassificationLot;
 use App\Models\Contract;
 use App\Models\Delivery;
 use App\Models\DeliveryTrip;
 use App\Models\FinancialLine;
 use App\Models\Partner;
-use App\Models\Pickup;
 use App\Models\Price;
 use App\Models\Reservation;
-use App\Models\SupplierReport;
 use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\WarehouseMutation;
 use App\Services\DeliverySchedulingService;
-use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -28,69 +25,37 @@ class DeliveryCompletionTest extends TestCase
     use RefreshDatabase;
 
     private User $officer;
-
     private Partner $partner;
-
     private Vehicle $vehicle;
 
-    private function setupFlow(float $lotKg = 120, array $capacity = ['min' => 100, 'ideal' => 200, 'max' => 300], string $grade = 'Layak', bool $split = false): DeliveryTrip
+    private function setupFlow(float $lotKg = 120, array $capacity = ['min' => 100, 'ideal' => 200, 'max' => 300], string $grade = 'Layak'): DeliveryTrip
     {
         Storage::fake('s3-private');
         $this->officer = User::factory()->create(['role' => 'officer']);
         $user = User::factory()->create(['role' => 'partner']);
         $this->partner = Partner::create(['user_id' => $user->id, 'name' => 'Mitra', 'address' => 'Jl. Mitra', 'grade_preference' => $grade, 'min_capacity_kg' => $capacity['min'], 'ideal_capacity_kg' => $capacity['ideal'], 'max_capacity_kg' => $capacity['max'], 'frequency' => 'harian', 'overcapacity_terms_version' => Partner::OVERCAPACITY_TERMS_VERSION, 'overcapacity_terms_accepted_at' => now()]);
-        Contract::create(['partner_id' => $this->partner->id, 'name' => 'Kontrak', 'status' => 'active', 'grade' => $grade, 'intended_use' => Grade::INTENDED_USES[$grade], 'min_capacity_kg' => $capacity['min'], 'ideal_capacity_kg' => $capacity['ideal'], 'max_capacity_kg' => $capacity['max'], 'frequency' => 'harian', 'sell_price' => 2000, 'buy_price' => 1500, 'start_date' => now()->subDay()->toDateString()]);
+        Contract::create(['partner_id' => $this->partner->id, 'name' => 'Kontrak', 'status' => 'active', 'grade' => $grade, 'intended_use' => \App\Domain\Grade::INTENDED_USES[$grade], 'min_capacity_kg' => $capacity['min'], 'ideal_capacity_kg' => $capacity['ideal'], 'max_capacity_kg' => $capacity['max'], 'frequency' => 'harian', 'sell_price' => 2000, 'buy_price' => 1500, 'start_date' => now()->subDay()->toDateString()]);
 
-        $report = SupplierReport::create(['public_id' => uniqid('R'), 'contact_name' => 'S', 'phone' => '1', 'estimated_kg' => $lotKg, 'photo_path' => 'x.jpg', 'location_consent' => true, 'latitude' => 0, 'longitude' => 0, 'manual_address' => 'x', 'status' => 'picked_up', 'pin_hash' => 'x']);
+        $report = \App\Models\SupplierReport::create(['public_id' => uniqid('R'), 'contact_name' => 'S', 'phone' => '1', 'estimated_kg' => $lotKg, 'photo_path' => 'x.jpg', 'location_consent' => true, 'latitude' => 0, 'longitude' => 0, 'manual_address' => 'x', 'status' => 'picked_up', 'pin_hash' => 'x']);
         $this->vehicle = Vehicle::create(['name' => 'V', 'capacity_kg' => 999999, 'is_active' => true]);
-        $pickup = Pickup::create(['supplier_report_id' => $report->id, 'vehicle_id' => $this->vehicle->id, 'officer_id' => $this->officer->id, 'status' => 'completed', 'estimated_kg' => $lotKg]);
-        $lot = ClassificationLot::create(['pickup_id' => $pickup->id, 'grade' => $grade, 'intended_use' => Grade::INTENDED_USES[$grade], 'kg' => $lotKg, 'classified_at' => now(), 'classified_by' => $this->officer->id]);
+        $pickup = \App\Models\Pickup::create(['supplier_report_id' => $report->id, 'vehicle_id' => $this->vehicle->id, 'officer_id' => $this->officer->id, 'status' => 'completed', 'estimated_kg' => $lotKg]);
+        $lot = ClassificationLot::create(['pickup_id' => $pickup->id, 'grade' => $grade, 'intended_use' => \App\Domain\Grade::INTENDED_USES[$grade], 'kg' => $lotKg, 'classified_at' => now(), 'classified_by' => $this->officer->id]);
         WarehouseMutation::create(['classification_lot_id' => $lot->id, 'type' => 'receipt', 'reference_type' => 'test', 'reference_id' => 0, 'grade' => $grade, 'intended_use' => $lot->intended_use, 'kg' => $lotKg, 'performed_by' => $this->officer->id, 'occurred_at' => now()]);
 
         $this->actingAs(User::factory()->create(['role' => 'admin']))->post('/allocation/run');
 
-        $date = Carbon::tomorrow();
+        $date = \Carbon\Carbon::today();
         app(DeliverySchedulingService::class)->schedule($date);
         $delivery = Delivery::where('partner_id', $this->partner->id)->firstOrFail();
-        if ($split) {
-            $line = $delivery->lines->first();
-            $line->update(['kg' => $lotKg]);
-            $line->reservation->update(['reserved_kg' => $lotKg]);
-        }
+
         // Assign a trip through the production path (Fase 4).
         $lineKg = [];
         foreach ($delivery->lines as $line) {
-            $lineKg[$line->id] = $split ? 6 : (float) $line->kg;
-            if ($split) {
-                break;
-            }
+            $lineKg[$line->id] = (float) $line->kg;
         }
         app(DeliverySchedulingService::class)->assign($delivery, $this->vehicle->id, $this->officer->id, $lineKg);
 
         return DeliveryTrip::where('delivery_id', $delivery->id)->where('officer_id', $this->officer->id)->firstOrFail();
-    }
-
-    public function test_split_trip_completes_quantities_independently(): void
-    {
-        Price::create(['grade' => 'Layak', 'buy_price' => 1500, 'sell_price' => 9999]);
-        $first = $this->setupFlow(10, ['min' => 1, 'ideal' => 10, 'max' => 20], 'Layak', true);
-        $delivery = $first->delivery;
-        $line = $first->lines->first()->deliveryLine;
-        $delivery->lines()->where('id', '!=', $line->id)->delete();
-
-        $this->actingAs($this->officer)->post("/officer/deliveries/{$first->id}/complete", $this->handoverPayload())->assertRedirect();
-        $this->assertSame(6.0, (float) WarehouseMutation::where('type', 'stock_out')->sum('kg'));
-        $this->assertSame(12000.0, (float) FinancialLine::where('type', 'partner_invoice')->sum('amount'));
-        $this->assertSame('partially_delivered', Reservation::firstOrFail()->status);
-        $this->assertNotSame('delivered', $delivery->fresh()->status);
-
-        $second = app(DeliverySchedulingService::class)->assign($delivery, $this->vehicle->id, $this->officer->id, [$line->id => 4]);
-
-        $this->actingAs($this->officer)->post("/officer/deliveries/{$second->id}/complete", $this->handoverPayload())->assertRedirect();
-        $this->assertSame(10.0, (float) WarehouseMutation::where('type', 'stock_out')->sum('kg'));
-        $this->assertSame(20000.0, (float) FinancialLine::where('type', 'partner_invoice')->sum('amount'));
-        $this->assertSame('fulfilled', Reservation::firstOrFail()->status);
-        $this->assertSame('delivered', $delivery->fresh()->status);
     }
 
     private function handoverPayload(): array

@@ -36,7 +36,7 @@ class SupplierReportTest extends TestCase
         $sale = (new SupplierReport)->forceFill(['public_id' => str_repeat('a', 32), 'contact_name' => 'x', 'estimated_kg' => 1,
             'location_consent' => false, 'photo_path' => 'x', 'pin_hash' => Hash::make('123456'), 'status' => 'submitted']);
         $sale->save();
-        $this->get(route('tracking.show', ['public_id' => $sale->public_id]))->assertMethodNotAllowed();
+        $this->get(route('tracking.show', ['public_id' => $sale->public_id]))->assertRedirect(route('tracking.create'));
         $this->post(route('tracking.show'), ['public_id' => $sale->public_id, 'pin' => '654321'])->assertSessionHasErrors('public_id');
         $this->post(route('tracking.show'), ['public_id' => $sale->public_id, 'pin' => '123456'])->assertOk()
             ->assertInertia(fn ($page) => $page->component('tracking')->where('sale.status', 'submitted'));

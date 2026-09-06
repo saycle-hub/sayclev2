@@ -35,7 +35,7 @@ export default function StatsPartners({ totals, byGrade, byFrequency }: Props) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Mitra & Pemasok" />
-            <div className="flex h-full flex-1 flex-col gap-6 bg-[#f4f3ed] p-4 md:p-6">
+            <div className="flex h-full flex-1 flex-col gap-6 bg-white p-4 md:p-6">
                 <div>
                     <h1 className="text-2xl font-semibold tracking-tight text-[#18352a]">Mitra & Pemasok</h1>
                     <p className="mt-1 text-sm text-[#18352a]/70">
@@ -110,7 +110,7 @@ function BreakdownTable({ rows, renderLabel }: { rows: GroupRow[]; renderLabel: 
         <div className="overflow-hidden rounded-2xl border border-[#2f6848]/15 bg-white">
             <Table>
                 <TableHeader>
-                    <TableRow className="bg-[#f4f3ed] hover:bg-[#f4f3ed]">
+                    <TableRow className="bg-white hover:bg-white">
                         <TableHead>Kategori</TableHead>
                         <TableHead className="text-right">Jumlah</TableHead>
                     </TableRow>

@@ -28,7 +28,7 @@ Route::get('/', function () {
 Route::get('/lapor', [SaleController::class, 'create'])->name('report.create');
 Route::post('/lapor', [SaleController::class, 'store'])->middleware('throttle:10,1')->name('report.store');
 Route::get('/tracking', [SaleController::class, 'tracking'])->name('tracking.create');
-Route::post('/tracking/show', [SaleController::class, 'show'])->middleware('throttle:5,1')->name('tracking.show');
+Route::match(['get', 'post'], '/tracking/show', [SaleController::class, 'show'])->middleware('throttle:10,1')->name('tracking.show');
 
 Route::middleware(['auth'])->group(function () {
     Route::get('dashboard', [StockController::class, 'dashboard'])->middleware('role:admin')->name('dashboard');
@@ -42,6 +42,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('stock', [StockController::class, 'index'])->name('stock.index');
         Route::get('stock/adjust', fn () => Inertia::render('stock/adjust'))->name('stock.adjust.create');
         Route::post('stock/adjust', [StockController::class, 'adjust'])->name('stock.adjust');
+        Route::post('stock/warehouses', [StockController::class, 'storeWarehouse'])->name('stock.warehouses.store');
         Route::get('prices', [PriceController::class, 'index'])->name('prices.index');
         Route::post('prices', [PriceController::class, 'update'])->name('prices.update');
 
@@ -65,7 +66,9 @@ Route::middleware(['auth'])->group(function () {
         Route::post('deliveries/optimize', [DeliveryController::class, 'optimize'])->name('deliveries.optimize');
         Route::post('deliveries/{delivery}/assign', [DeliveryController::class, 'assign'])->name('deliveries.assign');
         Route::get('delivery-routes', [DeliveryRouteController::class, 'index'])->name('delivery-routes.index');
+        Route::post('delivery-routes/optimize', [DeliveryRouteController::class, 'optimize'])->name('delivery-routes.optimize');
         Route::get('delivery-routes/{vehicle}', [DeliveryRouteController::class, 'show'])->name('delivery-routes.show');
+        Route::post('delivery-routes/{vehicle}/assign', [DeliveryRouteController::class, 'assign'])->name('delivery-routes.assign');
         Route::get('allocation/{grade}', [AllocationController::class, 'show'])->where('grade', 'Layak|Kurang Layak|Tidak Layak')->name('allocation.show');
 
         // Route optimization (Fase 5).
@@ -80,6 +83,12 @@ Route::middleware(['auth'])->group(function () {
         Route::post('vehicles', [VehicleController::class, 'store'])->name('vehicles.store');
         Route::put('vehicles/{vehicle}', [VehicleController::class, 'update'])->name('vehicles.update');
 
+        // User & Officer management.
+        Route::get('users', [\App\Http\Controllers\Admin\UserController::class, 'index'])->name('users.index');
+        Route::post('users', [\App\Http\Controllers\Admin\UserController::class, 'store'])->name('users.store');
+        Route::put('users/{user}', [\App\Http\Controllers\Admin\UserController::class, 'update'])->name('users.update');
+        Route::delete('users/{user}', [\App\Http\Controllers\Admin\UserController::class, 'destroy'])->name('users.destroy');
+
         // Partner invoice payment recording (Fase 7, D7: manual recording).
         Route::post('partner-invoices/{invoice}/pay', [PartnerInvoiceController::class, 'pay'])->name('partner-invoices.pay');
 
@@ -91,6 +100,7 @@ Route::middleware(['auth'])->group(function () {
     });
     Route::middleware('role:officer')->prefix('officer')->name('officer.')->group(function () {
         Route::get('dashboard', [OfficerController::class, 'dashboard'])->name('dashboard');
+        Route::get('stop/{type}/{id}', [OfficerController::class, 'showStop'])->name('stop.show');
         Route::get('workload', [OfficerController::class, 'dashboard'])->name('workload');
         // Workload aliases for sidebar links (PLAN Fase 3: 'Ganti route tasks
         // coming-soon dengan workload nyata'). Same canonical dashboard.

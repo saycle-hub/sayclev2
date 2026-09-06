@@ -50,7 +50,7 @@ export default function AllocationShow({ grade, weekStart, rows }: { grade: stri
     return (
         <AppLayout breadcrumbs={breadcrumbs(grade)}>
             <Head title={`Alokasi ${grade}`} />
-            <div className="flex h-full flex-1 flex-col gap-6 bg-[#f4f3ed] p-4 md:p-6">
+            <div className="flex h-full flex-1 flex-col gap-6 bg-white p-4 md:p-6">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
                         <GradeBadge grade={grade} />

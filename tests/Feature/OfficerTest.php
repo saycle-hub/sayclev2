@@ -184,4 +184,19 @@ class OfficerTest extends TestCase
         $this->actingAs(User::factory()->create(['role' => 'admin']))->get('/officer/tasks')->assertForbidden();
         $this->actingAs(User::factory()->create(['role' => 'partner']))->get('/officer/weighing')->assertForbidden();
     }
+
+    public function test_officer_can_view_dedicated_stop_page(): void
+    {
+        $officer = $this->createOfficer();
+        $pickup = $this->createAssignedPickupForOfficer($officer);
+
+        $response = $this->actingAs($officer)->get(route('officer.stop.show', ['type' => 'pickup', 'id' => $pickup->id]));
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->component('officer/stop-detail')
+            ->where('stop.id', $pickup->id)
+            ->where('stop.task_type', 'pickup')
+        );
+    }
 }
