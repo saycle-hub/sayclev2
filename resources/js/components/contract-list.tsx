@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { useForm } from '@inertiajs/react';
+import { Link, useForm } from '@inertiajs/react';
 import { Pause, Pencil, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -59,22 +59,24 @@ function toFormData(contract: ContractRow): ContractFormData {
 }
 
 export function gradeLabel(contract: ContractRow, partnerName?: string): string {
-    return contract.name?.trim() ? `${contract.name}` : `${partnerName ? `${partnerName} — ` : ''}Grade ${contract.grade}`;
+    const nameStr = typeof contract.name === 'string' ? contract.name.trim() : '';
+    return nameStr ? nameStr : `${partnerName ? `${partnerName} — ` : ''}Grade ${contract.grade}`;
+}
+
+function formatDateSafely(dateStr: string | null | undefined): string {
+    if (!dateStr) return '…';
+    try {
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return String(dateStr);
+        return d.toLocaleDateString('id-ID', { dateStyle: 'medium' });
+    } catch {
+        return String(dateStr);
+    }
 }
 
 function ContractRowActions({ contract }: { contract: ContractRow }) {
-    const [editOpen, setEditOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
-    const form = useForm<ContractFormData>(toFormData(contract));
     const actionForm = useForm<{ action: string }>({ action: '' });
-
-    const submit = (e: React.FormEvent) => {
-        e.preventDefault();
-        form.put(`/contracts/${contract.id}`, {
-            preserveScroll: true,
-            onSuccess: () => setEditOpen(false),
-        });
-    };
 
     const transition = (action: 'pause' | 'delete') => {
         actionForm.setData('action', action);
@@ -86,52 +88,18 @@ function ContractRowActions({ contract }: { contract: ContractRow }) {
 
     return (
         <div className="flex items-center gap-1">
-            <Dialog open={editOpen} onOpenChange={setEditOpen}>
-                <DialogTrigger asChild>
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="min-h-11 text-[#2f6848] hover:bg-[#2f6848]/5 md:min-h-9"
-                        aria-label="Ubah kontrak"
-                    >
-                        <Pencil className="h-4 w-4" aria-hidden="true" />
-                        <span className="sr-only sm:not-sr-only">Ubah</span>
-                    </Button>
-                </DialogTrigger>
-                <DialogContent className="max-h-[90vh] overflow-y-auto bg-white">
-                    <DialogHeader>
-                        <DialogTitle className="text-[#18352a]">Ubah kontrak</DialogTitle>
-                        <DialogDescription>Perbarui kapasitas, harga, atau status kontrak.</DialogDescription>
-                    </DialogHeader>
-                    <form onSubmit={submit} className="space-y-4">
-                        {Object.keys(form.errors).length > 0 && (
-                            <div role="alert" className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
-                                Periksa kembali isian formulir.
-                            </div>
-                        )}
-                        <ContractForm form={form} idPrefix={`edit-contract-${contract.id}`} showStatus />
-                        <div className="flex justify-end gap-2">
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                onClick={() => setEditOpen(false)}
-                                disabled={form.processing}
-                                className="min-h-11 focus-visible:ring-[#e88c12] md:min-h-9"
-                            >
-                                Batal
-                            </Button>
-                            <Button
-                                type="submit"
-                                disabled={form.processing}
-                                className="min-h-11 bg-[#2f6848] text-[#f4f3ed] hover:bg-[#18352a] focus-visible:ring-[#e88c12] md:min-h-9"
-                            >
-                                Simpan
-                            </Button>
-                        </div>
-                    </form>
-                </DialogContent>
-            </Dialog>
+            <Button
+                asChild
+                variant="ghost"
+                size="sm"
+                className="min-h-11 text-[#2f6848] hover:bg-[#2f6848]/5 md:min-h-9 font-semibold"
+                aria-label="Ubah kontrak"
+            >
+                <Link href={`/contracts/${contract.id}/edit`}>
+                    <Pencil className="h-4 w-4" aria-hidden="true" />
+                    <span className="sr-only sm:not-sr-only">Ubah</span>
+                </Link>
+            </Button>
 
             {contract.status === 'active' && (
                 <Button
@@ -194,6 +162,34 @@ function ContractRowActions({ contract }: { contract: ContractRow }) {
     );
 }
 
+const DAY_LABELS: Record<string, string> = {
+    monday: 'Senin',
+    tuesday: 'Selasa',
+    wednesday: 'Rabu',
+    thursday: 'Kamis',
+    friday: 'Jumat',
+    saturday: 'Sabtu',
+    sunday: 'Minggu',
+};
+
+function formatReceivingDays(days: any): string {
+    if (!days) return 'Hari belum dipilih';
+    let arr: string[] = [];
+    if (Array.isArray(days)) {
+        arr = days;
+    } else if (typeof days === 'string') {
+        try {
+            const parsed = JSON.parse(days);
+            if (Array.isArray(parsed)) arr = parsed;
+            else arr = [days];
+        } catch {
+            arr = [days];
+        }
+    }
+    if (arr.length === 0) return 'Hari belum dipilih';
+    return arr.map((d) => DAY_LABELS[d] ?? d).join(', ');
+}
+
 /**
  * Compact contract rows with status, price info, and actions.
  */
@@ -228,15 +224,22 @@ export function ContractList({ contracts, partnerName, className }: { contracts:
                             </span>{' '}
                             kg/minggu (ideal {formatKg(c.ideal_capacity_kg)})
                         </p>
-                        <p>{FREQUENCY_LABELS[c.frequency] ?? c.frequency} · {c.frequency === 'harian' ? 'Setiap hari' : c.frequency === 'bulanan' ? 'Belum didukung' : (c.receiving_days ?? []).join(', ') || 'Hari belum dipilih'}</p>
+                        <p>
+                            {FREQUENCY_LABELS[c.frequency] ?? c.frequency} ·{' '}
+                            {c.frequency === 'harian'
+                                ? 'Setiap hari'
+                                : c.frequency === 'bulanan'
+                                ? `Tanggal ${c.monthly_day || '—'} setiap bulan`
+                                : formatReceivingDays(c.receiving_days)}
+                        </p>
                         <div className="flex gap-2">
                             <PriceBadge label="Beli" value={Number(c.buy_price)} />
                             <PriceBadge label="Jual" value={Number(c.sell_price)} />
                         </div>
                         {(c.start_date || c.end_date) && (
                             <p className="text-xs text-[#18352a]/70">
-                                {c.start_date ? new Date(c.start_date).toLocaleDateString('id-ID', { dateStyle: 'medium' }) : '…'} —{' '}
-                                {c.end_date ? new Date(c.end_date).toLocaleDateString('id-ID', { dateStyle: 'medium' }) : 'berjalan'}
+                                {c.start_date ? formatDateSafely(c.start_date) : '…'} —{' '}
+                                {c.end_date ? formatDateSafely(c.end_date) : 'berjalan'}
                             </p>
                         )}
                     </div>

@@ -25,8 +25,10 @@ class Contract extends Model
         'ideal_capacity_kg',
         'max_capacity_kg',
         'frequency',
+        'delivery_frequency',
         'monthly_day',
         'receiving_days',
+        'delivery_days',
         'buy_price',
         'sell_price',
         'start_date',
@@ -44,6 +46,7 @@ class Contract extends Model
             'start_date' => 'date',
             'end_date' => 'date',
             'receiving_days' => 'array',
+            'delivery_days' => 'array',
             'monthly_day' => 'integer',
         ];
     }
@@ -82,5 +85,50 @@ class Contract extends Model
         }
 
         return false;
+    }
+
+    public function isScheduledForDate(CarbonInterface $date): bool
+    {
+        if ($this->delivery_frequency === null) {
+            return true;
+        }
+
+        if ($this->delivery_frequency === 'harian') {
+            return true;
+        }
+
+        $days = $this->delivery_days ?? ['Monday', 'Thursday'];
+        if (empty($days)) {
+            return true;
+        }
+
+        return in_array(strtolower($date->englishDayOfWeek), array_map('strtolower', (array) $days), true);
+    }
+
+    public function dailyMinKg(?CarbonInterface $date = null): float
+    {
+        if ($this->delivery_frequency === 'harian') {
+            return round((float) $this->min_capacity_kg / 7.0, 2);
+        }
+
+        return ($date && ! $this->isScheduledForDate($date)) ? 0.0 : (float) $this->min_capacity_kg;
+    }
+
+    public function dailyIdealKg(?CarbonInterface $date = null): float
+    {
+        if ($this->delivery_frequency === 'harian') {
+            return round((float) $this->ideal_capacity_kg / 7.0, 2);
+        }
+
+        return ($date && ! $this->isScheduledForDate($date)) ? 0.0 : (float) $this->ideal_capacity_kg;
+    }
+
+    public function dailyMaxKg(?CarbonInterface $date = null): float
+    {
+        if ($this->delivery_frequency === 'harian') {
+            return round((float) $this->max_capacity_kg / 7.0, 2);
+        }
+
+        return ($date && ! $this->isScheduledForDate($date)) ? 0.0 : (float) $this->max_capacity_kg;
     }
 }

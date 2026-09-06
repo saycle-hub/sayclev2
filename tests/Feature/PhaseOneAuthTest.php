@@ -32,7 +32,7 @@ class PhaseOneAuthTest extends TestCase
     public function test_missing_onboarding_is_rejected(): void
     {
         $this->from('/register')->post('/register', ['name' => 'Mitra', 'email' => 'x@example.com', 'password' => 'password', 'password_confirmation' => 'password'])
-            ->assertSessionHasErrors(['address', 'receiving_days', 'overcapacity_terms_accepted']);
+            ->assertSessionHasErrors(['address', 'frequency', 'overcapacity_terms_accepted']);
     }
 
     public function test_terms_gate_and_access(): void

@@ -9,6 +9,7 @@ interface NavMainProps {
 
 export function NavMain({ items, groups }: NavMainProps) {
     const page = usePage();
+    const currentPath = page.url.split('?')[0];
 
     if (groups && groups.length > 0) {
         return (
@@ -19,16 +20,20 @@ export function NavMain({ items, groups }: NavMainProps) {
                             {group.title}
                         </SidebarGroupLabel>
                         <SidebarMenu>
-                            {group.items.map((item) => (
-                                <SidebarMenuItem key={item.title}>
-                                    <SidebarMenuButton asChild isActive={item.url === page.url}>
-                                        <Link href={item.url} prefetch>
-                                            {item.icon && <item.icon />}
-                                            <span>{item.title}</span>
-                                        </Link>
-                                    </SidebarMenuButton>
-                                </SidebarMenuItem>
-                            ))}
+                            {group.items.map((item) => {
+                                const itemPath = item.url.split('?')[0];
+                                const isActive = currentPath === itemPath;
+                                return (
+                                    <SidebarMenuItem key={item.title}>
+                                        <SidebarMenuButton asChild isActive={isActive}>
+                                            <Link href={item.url} prefetch>
+                                                {item.icon && <item.icon />}
+                                                <span>{item.title}</span>
+                                            </Link>
+                                        </SidebarMenuButton>
+                                    </SidebarMenuItem>
+                                );
+                            })}
                         </SidebarMenu>
                     </SidebarGroup>
                 ))}
@@ -40,16 +45,20 @@ export function NavMain({ items, groups }: NavMainProps) {
         <SidebarGroup className="px-2 py-0">
             <SidebarGroupLabel>Menu</SidebarGroupLabel>
             <SidebarMenu>
-                {(items ?? []).map((item) => (
-                    <SidebarMenuItem key={item.title}>
-                        <SidebarMenuButton asChild isActive={item.url === page.url}>
-                            <Link href={item.url} prefetch>
-                                {item.icon && <item.icon />}
-                                <span>{item.title}</span>
-                            </Link>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                ))}
+                {(items ?? []).map((item) => {
+                    const itemPath = item.url.split('?')[0];
+                    const isActive = currentPath === itemPath;
+                    return (
+                        <SidebarMenuItem key={item.title}>
+                            <SidebarMenuButton asChild isActive={isActive}>
+                                <Link href={item.url} prefetch>
+                                    {item.icon && <item.icon />}
+                                    <span>{item.title}</span>
+                                </Link>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                    );
+                })}
             </SidebarMenu>
         </SidebarGroup>
     );

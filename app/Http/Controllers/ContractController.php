@@ -40,6 +40,16 @@ class ContractController extends Controller
         ]);
     }
 
+    public function create(Partner $partner): Response
+    {
+        $systemPrices = \App\Models\Price::all()->keyBy('grade');
+
+        return Inertia::render('contracts/create', [
+            'partner' => $partner,
+            'systemPrices' => $systemPrices,
+        ]);
+    }
+
     public function store(Request $request, Partner $partner): RedirectResponse
     {
         $partner->contracts()->create([
@@ -47,14 +57,26 @@ class ContractController extends Controller
             'status' => 'active',
         ]);
 
-        return back()->with('success', 'Kontrak berhasil ditambahkan.');
+        return redirect()->route('partners.show', $partner)->with('success', 'Kontrak berhasil ditambahkan.');
+    }
+
+    public function edit(Contract $contract): Response
+    {
+        $contract->load('partner');
+        $systemPrices = \App\Models\Price::all()->keyBy('grade');
+
+        return Inertia::render('contracts/edit', [
+            'contract' => $contract,
+            'partner' => $contract->partner,
+            'systemPrices' => $systemPrices,
+        ]);
     }
 
     public function update(Request $request, Contract $contract): RedirectResponse
     {
         $contract->update($this->validated($request, $contract));
 
-        return back()->with('success', 'Kontrak berhasil diperbarui.');
+        return redirect()->route('partners.show', $contract->partner_id)->with('success', 'Kontrak berhasil diperbarui.');
     }
 
     /**
@@ -126,7 +148,7 @@ class ContractController extends Controller
      */
     private function validated(Request $request, ?Contract $contract = null): array
     {
-        return $request->validate([
+        $validated = $request->validate([
             'name' => ['nullable', 'string', 'max:255'],
             'status' => ['sometimes', 'string', Rule::in(Contract::STATUSES)],
             'grade' => ['required', 'string', Rule::in(Contract::GRADES)],
@@ -134,10 +156,10 @@ class ContractController extends Controller
             'ideal_capacity_kg' => ['required', 'numeric', 'min:0', 'max:99999999', 'gte:min_capacity_kg'],
             'max_capacity_kg' => ['required', 'numeric', 'min:0', 'max:99999999', 'gte:ideal_capacity_kg'],
             'frequency' => ['required', 'string', Rule::in(Contract::FREQUENCIES)],
-            'receiving_days' => ['nullable', 'array', 'required_if:frequency,mingguan', 'min:1'],
+            'receiving_days' => Rule::when($request->input('frequency') === 'mingguan', ['required', 'array', 'min:1'], ['nullable', 'array']),
             'receiving_days.*' => ['string', Rule::in(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'])],
             'monthly_day' => ['nullable', 'integer', 'between:1,28', 'required_if:frequency,bulanan'],
-            'buy_price' => ['required', 'numeric', 'min:0', 'max:999999999'],
+            'buy_price' => ['nullable', 'numeric', 'min:0', 'max:999999999'],
             'sell_price' => ['required', 'numeric', 'min:0', 'max:999999999'],
             'start_date' => ['nullable', 'date'],
             'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
@@ -153,12 +175,31 @@ class ContractController extends Controller
             'max_capacity_kg.gte' => 'Kapasitas maksimum tidak boleh lebih kecil dari ideal.',
             'frequency.required' => 'Frekuensi wajib dipilih.',
             'frequency.in' => 'Frekuensi tidak valid.',
-            'buy_price.required' => 'Harga beli wajib diisi.',
-            'buy_price.min' => 'Harga beli tidak boleh negatif.',
             'sell_price.required' => 'Harga jual wajib diisi.',
             'sell_price.min' => 'Harga jual tidak boleh negatif.',
             'end_date.after_or_equal' => 'Tanggal berakhir tidak boleh sebelum tanggal mulai.',
-        ]) + ['receiving_days' => in_array($request->input('frequency'), ['harian', 'bulanan'], true) ? [] : array_values(array_unique($request->input('receiving_days', []))), 'monthly_day' => $request->input('frequency') === 'bulanan' ? $request->input('monthly_day') : null];
+        ]);
+
+        $freq = $request->input('frequency');
+        $receivingDays = in_array($freq, ['harian', 'bulanan'], true)
+            ? []
+            : array_values(array_unique((array) $request->input('receiving_days', ['monday'])));
+
+        if ($freq === 'mingguan' && !empty($receivingDays)) {
+            $receivingDays = [reset($receivingDays)];
+        }
+
+        $grade = $request->input('grade');
+        $stdBuyPrice = \App\Models\Price::where('grade', $grade)->value('buy_price') ?? 1000;
+        $buyPrice = $request->filled('buy_price') ? (float) $request->input('buy_price') : (float) $stdBuyPrice;
+
+        return array_merge($validated, [
+            'buy_price' => $buyPrice,
+            'delivery_frequency' => $freq,
+            'receiving_days' => $receivingDays,
+            'delivery_days' => $receivingDays,
+            'monthly_day' => $freq === 'bulanan' ? $request->input('monthly_day') : null,
+        ]);
     }
 
     private function scheduleSummary(string $frequency, ?array $days, ?int $monthlyDay = null): string

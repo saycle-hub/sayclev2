@@ -26,6 +26,16 @@ interface PartnersIndexProps {
     stats: { total: number; active: number; without_contract: number };
 }
 
+const DAY_LABELS: Record<string, string> = {
+    monday: 'Senin',
+    tuesday: 'Selasa',
+    wednesday: 'Rabu',
+    thursday: 'Kamis',
+    friday: 'Jumat',
+    saturday: 'Sabtu',
+    sunday: 'Minggu',
+};
+
 export default function PartnersIndex({ partners, filters, stats }: PartnersIndexProps) {
     const [query, setQuery] = useState(filters.q);
     const [deletePartner, setDeletePartner] = useState<PartnerSummary | null>(null);
@@ -128,8 +138,8 @@ export default function PartnersIndex({ partners, filters, stats }: PartnersInde
                                 <TableHead>Nama</TableHead>
                                 <TableHead className="hidden lg:table-cell">Alamat</TableHead>
                                 <TableHead>Preferensi</TableHead>
-                                <TableHead>Frekuensi</TableHead>
-                                <TableHead className="hidden md:table-cell">Kapasitas (min–ideal–maks)</TableHead>
+                                <TableHead>Frekuensi & Hari</TableHead>
+                                <TableHead className="hidden md:table-cell">Kapasitas / Kebutuhan</TableHead>
                                 <TableHead>Status</TableHead>
                                 <TableHead className="text-right">Aksi</TableHead>
                             </TableRow>
@@ -147,6 +157,7 @@ export default function PartnersIndex({ partners, filters, stats }: PartnersInde
                                 paginatedPartners.map((p) => {
                                     const active = (p.active_contracts_count ?? 0) > 0;
                                     const hasContract = (p.contracts_count ?? 0) > 0;
+                                    const primaryDay = p.receiving_days?.[0];
                                     return (
                                         <TableRow key={p.id}>
                                             <TableCell>
@@ -165,9 +176,32 @@ export default function PartnersIndex({ partners, filters, stats }: PartnersInde
                                                     <span className="text-[#18352a]/70">—</span>
                                                 )}
                                             </TableCell>
-                                            <TableCell className="text-[#18352a]/80">{FREQUENCY_LABELS[p.frequency] ?? p.frequency}</TableCell>
+                                            <TableCell className="text-[#18352a]/80">
+                                                {p.frequency === 'mingguan' ? (
+                                                    <div>
+                                                        <p className="font-semibold text-[#18352a]">Mingguan</p>
+                                                        <p className="text-[11px] font-semibold text-[#2f6848]">
+                                                            {primaryDay ? `Hari ${DAY_LABELS[primaryDay] ?? primaryDay}` : 'Hari belum diatur'}
+                                                        </p>
+                                                    </div>
+                                                ) : (
+                                                    FREQUENCY_LABELS[p.frequency] ?? p.frequency
+                                                )}
+                                            </TableCell>
                                             <TableCell className="hidden text-[#18352a]/80 tabular-nums md:table-cell">
-                                                {formatKg(p.min_capacity_kg)} – {formatKg(p.ideal_capacity_kg)} – {formatKg(p.max_capacity_kg)}
+                                                {active ? (
+                                                    <div>
+                                                        <p className="font-semibold text-[#18352a]">
+                                                            {formatKg(p.min_capacity_kg)} – {formatKg(p.ideal_capacity_kg)} – {formatKg(p.max_capacity_kg)}
+                                                        </p>
+                                                        <span className="text-[10px] font-bold text-[#2f6848] bg-[#2f6848]/10 px-1.5 py-0.5 rounded">Kontrak Aktif</span>
+                                                    </div>
+                                                ) : (
+                                                    <div>
+                                                        <p className="font-bold text-[#18352a]">{formatKg(p.ideal_capacity_kg)} kg</p>
+                                                        <span className="text-[10px] font-semibold text-[#18352a]/60">Kebutuhan Pokok</span>
+                                                    </div>
+                                                )}
                                             </TableCell>
                                             <TableCell>
                                                 <div className="flex flex-col items-start gap-1">

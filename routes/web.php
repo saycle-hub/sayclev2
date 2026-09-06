@@ -54,8 +54,10 @@ Route::middleware(['auth'])->group(function () {
         Route::get('partners/{partner}/edit', [PartnerController::class, 'edit'])->name('partners.edit');
         Route::put('partners/{partner}', [PartnerController::class, 'update'])->name('partners.update');
         Route::delete('partners/{partner}', [PartnerController::class, 'destroy'])->name('partners.destroy');
+        Route::get('partners/{partner}/contracts/create', [ContractController::class, 'create'])->name('partners.contracts.create');
         Route::post('partners/{partner}/contracts', [ContractController::class, 'store'])->name('partners.contracts.store');
         Route::get('contracts', [ContractController::class, 'index'])->name('contracts.index');
+        Route::get('contracts/{contract}/edit', [ContractController::class, 'edit'])->name('contracts.edit');
         Route::put('contracts/{contract}', [ContractController::class, 'update'])->name('contracts.update');
         Route::post('contracts/{contract}/action', [ContractController::class, 'action'])->name('contracts.action');
 

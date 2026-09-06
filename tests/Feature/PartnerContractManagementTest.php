@@ -97,26 +97,16 @@ class PartnerContractManagementTest extends TestCase
 
         $partner = Partner::where('name', 'Mitra Berkah')->firstOrFail();
         $response->assertRedirect("/partners/{$partner->id}");
-        $this->assertDatabaseHas('partners', ['name' => 'Mitra Berkah', 'min_capacity_kg' => 100]);
+        $this->assertDatabaseHas('partners', ['name' => 'Mitra Berkah']);
     }
 
-    public function test_partner_store_validates_capacity_order(): void
+    public function test_partner_store_validates_basic_fields(): void
     {
-        // Ideal below minimum must fail.
-        $this->actingAs($this->admin())
-            ->post('/partners', $this->validPartnerPayload(['min_capacity_kg' => 200, 'ideal_capacity_kg' => 100]))
-            ->assertSessionHasErrors(['ideal_capacity_kg']);
-
-        // Max below ideal must fail.
-        $this->actingAs($this->admin())
-            ->post('/partners', $this->validPartnerPayload(['ideal_capacity_kg' => 300, 'max_capacity_kg' => 100]))
-            ->assertSessionHasErrors(['max_capacity_kg']);
-
         $this->actingAs($this->admin())
             ->post('/partners', $this->validPartnerPayload(['grade_preference' => 'Tidak Valid']))
             ->assertSessionHasErrors(['grade_preference']);
 
-        $this->actingAs($this->admin())->post('/partners', [])->assertSessionHasErrors(['name', 'address', 'min_capacity_kg', 'ideal_capacity_kg', 'max_capacity_kg', 'frequency']);
+        $this->actingAs($this->admin())->post('/partners', [])->assertSessionHasErrors(['name', 'address', 'frequency']);
     }
 
     public function test_admin_can_update_and_delete_partner(): void
@@ -164,7 +154,7 @@ class PartnerContractManagementTest extends TestCase
 
         $this->actingAs($this->admin())
             ->post("/partners/{$partner->id}/contracts", [])
-            ->assertSessionHasErrors(['grade', 'min_capacity_kg', 'ideal_capacity_kg', 'max_capacity_kg', 'frequency', 'buy_price', 'sell_price']);
+            ->assertSessionHasErrors(['grade', 'min_capacity_kg', 'ideal_capacity_kg', 'max_capacity_kg', 'frequency', 'sell_price']);
 
         $this->actingAs($this->admin())
             ->post("/partners/{$partner->id}/contracts", $this->validContractPayload(['min_capacity_kg' => 500, 'ideal_capacity_kg' => 100]))

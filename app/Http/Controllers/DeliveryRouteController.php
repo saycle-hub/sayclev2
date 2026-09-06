@@ -39,17 +39,21 @@ class DeliveryRouteController extends Controller
         $vehicles = Vehicle::query()->where('is_active', true)->orderBy('name')->get();
         $officers = User::query()->where('role', 'officer')->orderBy('name')->get(['id', 'name']);
 
-        $horizonStart = Carbon::now()->startOfWeek();
-        $scheduleHorizon = collect(range(0, 6))->map(function ($dayOffset) use ($horizonStart) {
+        $today = Carbon::today();
+        $horizonStart = $today->copy()->startOfWeek();
+        $scheduleHorizon = collect(range(0, 6))->map(function ($dayOffset) use ($horizonStart, $today) {
             $d = $horizonStart->copy()->addDays($dayOffset);
             $dStr = $d->toDateString();
+            $isPast = $d->isBefore($today);
             $count = Delivery::whereDate('service_date', $dStr)->count();
 
             return [
-                'date' => $dStr,
-                'day_name' => $d->locale('id')->isoFormat('dddd'),
-                'day_short' => $d->locale('id')->isoFormat('D MMM'),
-                'is_today' => $d->isToday(),
+                'date'           => $dStr,
+                'day_name'       => $d->locale('id')->isoFormat('dddd'),
+                'day_short'      => $d->locale('id')->isoFormat('D MMM'),
+                'is_today'       => $d->isToday(),
+                'is_past'        => $isPast,
+                'is_future'      => $d->isAfter($today),
                 'delivery_count' => $count,
             ];
         })->values();

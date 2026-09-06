@@ -19,7 +19,7 @@ class PartnerController extends Controller
             ->withCount(['contracts', 'contracts as active_contracts_count' => fn ($q) => $q->where('status', 'active')])
             ->when($search !== '', fn ($q) => $q->where(fn ($qq) => $qq->where('name', 'like', "%{$search}%")->orWhere('address', 'like', "%{$search}%")))
             ->latest()
-            ->get(['id', 'name', 'address', 'grade_preference', 'min_capacity_kg', 'ideal_capacity_kg', 'max_capacity_kg', 'frequency', 'created_at']);
+            ->get(['id', 'name', 'address', 'grade_preference', 'min_capacity_kg', 'ideal_capacity_kg', 'max_capacity_kg', 'frequency', 'receiving_days', 'created_at']);
 
         return Inertia::render('partners/index', [
             'partners' => $partners,
@@ -47,8 +47,12 @@ class PartnerController extends Controller
     public function show(Partner $partner): Response
     {
         $partner->load(['contracts' => fn ($q) => $q->latest()]);
+        $systemPrices = \App\Models\Price::all()->keyBy('grade');
 
-        return Inertia::render('partners/show', ['partner' => $partner]);
+        return Inertia::render('partners/show', [
+            'partner' => $partner,
+            'systemPrices' => $systemPrices,
+        ]);
     }
 
     public function edit(Partner $partner): Response
@@ -76,26 +80,41 @@ class PartnerController extends Controller
      */
     private function validated(Request $request): array
     {
-        return $request->validate([
+        $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'address' => ['required', 'string', 'max:2000'],
             'grade_preference' => ['nullable', 'string', Rule::in(['Layak', 'Kurang Layak', 'Tidak Layak'])],
-            'min_capacity_kg' => ['required', 'numeric', 'min:0', 'max:99999999'],
-            'ideal_capacity_kg' => ['required', 'numeric', 'min:0', 'max:99999999', 'gte:min_capacity_kg'],
-            'max_capacity_kg' => ['required', 'numeric', 'min:0', 'max:99999999', 'gte:ideal_capacity_kg'],
+            'kebutuhan_pokok_kg' => ['nullable', 'numeric', 'min:0', 'max:99999999'],
+            'ideal_capacity_kg' => ['nullable', 'numeric', 'min:0', 'max:99999999'],
             'frequency' => ['required', 'string', Rule::in(['harian', 'mingguan', 'bulanan'])],
+            'receiving_days' => ['nullable', 'array'],
+            'receiving_days.*' => ['string', Rule::in(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'])],
         ], [
             'name.required' => 'Nama mitra wajib diisi.',
             'address.required' => 'Alamat wajib diisi.',
             'grade_preference.in' => 'Grade preferensi tidak valid.',
-            'min_capacity_kg.required' => 'Kapasitas minimum wajib diisi.',
-            'min_capacity_kg.numeric' => 'Kapasitas minimum harus berupa angka.',
-            'ideal_capacity_kg.required' => 'Kapasitas ideal wajib diisi.',
-            'ideal_capacity_kg.gte' => 'Kapasitas ideal tidak boleh lebih kecil dari minimum.',
-            'max_capacity_kg.required' => 'Kapasitas maksimum wajib diisi.',
-            'max_capacity_kg.gte' => 'Kapasitas maksimum tidak boleh lebih kecil dari ideal.',
+            'kebutuhan_pokok_kg.numeric' => 'Total kebutuhan pokok harus berupa angka.',
             'frequency.required' => 'Frekuensi wajib dipilih.',
             'frequency.in' => 'Frekuensi tidak valid.',
         ]);
+
+        $kebutuhan = (float) ($request->input('kebutuhan_pokok_kg') ?? $request->input('ideal_capacity_kg') ?? 0);
+        $validated['ideal_capacity_kg'] = $kebutuhan;
+        $validated['min_capacity_kg'] = $kebutuhan;
+        $validated['max_capacity_kg'] = $kebutuhan;
+
+        $freq = $request->input('frequency');
+        $validated['delivery_frequency'] = $freq;
+        if ($freq === 'mingguan') {
+            $rawDays = (array) $request->input('receiving_days', []);
+            $firstDay = !empty($rawDays) ? reset($rawDays) : 'monday';
+            $validated['receiving_days'] = [$firstDay];
+            $validated['delivery_days'] = [$firstDay];
+        } else {
+            $validated['receiving_days'] = [];
+            $validated['delivery_days'] = [];
+        }
+
+        return $validated;
     }
 }

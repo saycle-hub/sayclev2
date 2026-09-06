@@ -331,4 +331,47 @@ class AllocationTest extends TestCase
         $engine = app(AllocationEngine::class);
         $this->assertEqualsWithDelta(0.0, $engine->availableStock('Layak'), 0.01);
     }
+
+    public function test_non_contracted_partners_receive_allocations_when_stock_available_and_zero_in_deficit(): void
+    {
+        // Contracted partner: min 100, ideal 200, max 300
+        $this->partnerWithContract(['min' => 100, 'ideal' => 200, 'max' => 300]);
+
+        // Non-contracted partner: ideal 150
+        $nonContractUser = User::factory()->create(['role' => 'partner']);
+        $nonContractPartner = Partner::create([
+            'user_id' => $nonContractUser->id,
+            'name' => 'Mitra Reguler Non-Kontrak',
+            'address' => 'Jl. Reguler',
+            'grade_preference' => 'Layak',
+            'min_capacity_kg' => 150,
+            'ideal_capacity_kg' => 150,
+            'max_capacity_kg' => 150,
+            'frequency' => 'mingguan',
+        ]);
+
+        // Case 1: Deficit (Stock = 80 < contracted min 100) -> Non-contracted gets 0
+        $this->addLot('Layak', 80);
+        $this->actingAs($this->admin())->post('/allocation/run');
+
+        $allocations = Allocation::where('grade', 'Layak')->get();
+        $this->assertSame(80.0, (float) $allocations->sum('allocated_kg'));
+        $this->assertSame(0, Allocation::where('partner_id', $nonContractPartner->id)->count());
+
+        // Case 2: Stock = 350 (covers contracted ideal 200 + non-contracted ideal 150)
+        // Reset allocations & add stock to 350
+        Allocation::where('grade', 'Layak')->delete();
+        $this->addLot('Layak', 270); // Total stock now 350
+
+        $this->actingAs($this->admin())->post('/allocation/run');
+
+        $allocations = Allocation::where('grade', 'Layak')->get();
+        $this->assertSame(350.0, (float) $allocations->sum('allocated_kg'));
+
+        $contractedAlloc = (float) Allocation::where('contract_id', '!=', null)->sum('allocated_kg');
+        $nonContractedAlloc = (float) Allocation::where('partner_id', $nonContractPartner->id)->sum('allocated_kg');
+
+        $this->assertSame(200.0, $contractedAlloc);
+        $this->assertSame(150.0, $nonContractedAlloc);
+    }
 }

@@ -12,16 +12,30 @@ use App\Models\DeliveryTrip;
 use App\Models\DeliveryTripLine;
 use App\Models\FinancialLine;
 use App\Models\Partner;
-use App\Models\Pickup;
 use App\Models\Reservation;
-use App\Models\SupplierReport;
 use App\Models\User;
 use App\Models\Vehicle;
+use App\Models\WarehouseMutation;
+use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
 class AllocationAndDeliverySeeder extends Seeder
 {
+    /**
+     * Pola status 6 hari historis (indeks 0 = Senin 31 Agt, indeks 5 = Sabtu 5 Sep)
+     * Harus KONSISTEN dengan IntakeAndPickupSeeder::DAY_STATUS
+     *
+     *  idx  Tanggal       Status     Keterangan
+     *  0    31 Agt (Sen)  ideal      Hari normal, alokasi sesuai ideal
+     *  1    1 Sep  (Sel)  ideal      Hari normal
+     *  2    2 Sep  (Rab)  ideal      Hari normal
+     *  3    3 Sep  (Kam)  ideal      Hari normal
+     *  4    4 Sep  (Jum)  deficit    Stok masuk kurang dari kebutuhan minimum
+     *  5    5 Sep  (Sab)  overload   Stok masuk melebihi kebutuhan maksimum
+     */
+    private const DAY_STATUS = ['ideal', 'ideal', 'ideal', 'ideal', 'deficit', 'overload'];
+
     public function run(): void
     {
         $drivers = User::where('role', 'officer')->get();
@@ -31,281 +45,287 @@ class AllocationAndDeliverySeeder extends Seeder
         $driver4 = $drivers->firstWhere('email', 'driver4@saycle.id') ?? $drivers->get(3) ?? $driver1;
 
         $vehicles = Vehicle::all();
-        $lots = ClassificationLot::all();
+        $vPickup  = $vehicles->get(0) ?? $vehicles->first();
+        $vElf     = $vehicles->get(1) ?? $vehicles->first();
+        $vGranmax = $vehicles->get(2) ?? $vehicles->first();
+        $vHino    = $vehicles->get(3) ?? $vehicles->first();
 
-        // Find Partners & Contracts
-        $composterPartner = Partner::where('name', 'like', '%Kompos%')->first();
-        $composterContract = $composterPartner ? Contract::where('partner_id', $composterPartner->id)->first() : null;
+        $deliveryDrivers = [
+            Grade::FIT       => ['driver' => $driver1, 'vehicle' => $vPickup],
+            Grade::LESS_FIT  => ['driver' => $driver2, 'vehicle' => $vElf],
+            Grade::NOT_FIT   => ['driver' => $driver4, 'vehicle' => $vHino],
+        ];
 
-        $peternakanPartner = Partner::where('name', 'like', '%Peternakan%')->first();
-        $peternakanContract = $peternakanPartner ? Contract::where('partner_id', $peternakanPartner->id)->first() : null;
+        // Load semua partner beserta kontrak aktif
+        $allPartners = Partner::with(['contracts' => fn ($q) => $q->where('status', 'active')])->get();
 
-        $maggotPartner = Partner::where('name', 'like', '%Maggot%')->first();
-        $maggotContract = $maggotPartner ? Contract::where('partner_id', $maggotPartner->id)->first() : null;
+        $tz = 'Asia/Jakarta';
+        $today = now()->setTimezone($tz)->startOfDay();
+        $yesterday = $today->copy()->subDay();
+        $weekStart = Carbon::parse('2026-08-31', $tz)->startOfDay();
 
-        $weekStart = now()->startOfWeek();
-        $weekEnd = $weekStart->copy()->addDays(6);
+        $numHistoricalDays = max(1, (int) $weekStart->diffInDays($yesterday) + 1);
 
-        // 1. Create Weekly Allocations
-        $allocations = [];
-        if ($composterPartner && $composterContract) {
-            $allocations[Grade::NOT_FIT] = Allocation::create([
-                'partner_id' => $composterPartner->id,
-                'contract_id' => $composterContract->id,
-                'grade' => Grade::NOT_FIT,
-                'source_grade' => Grade::NOT_FIT,
-                'intended_use' => Grade::INTENDED_USES[Grade::NOT_FIT],
-                'allocated_kg' => 2000.00,
-                'allocation_type' => 'ideal',
-                'status' => 'approved',
-                'week_start' => $weekStart->toDateString(),
-                'period_start' => $weekStart->toDateString(),
-                'period_end' => $weekEnd->toDateString(),
-                'notes' => 'Alokasi ideal limbah organik tidak layak untuk kompos',
-            ]);
-        }
+        // ======================================================
+        // LOOP HARI HISTORIS: 31 Agt s.d. 1 hari sebelum hari komputer
+        // ======================================================
+        for ($dayIdx = 0; $dayIdx < $numHistoricalDays; $dayIdx++) {
+            $date    = $weekStart->copy()->addDays($dayIdx);
+            $dateStr = $date->toDateString();
+            $status  = self::DAY_STATUS[$dayIdx % count(self::DAY_STATUS)];
 
-        if ($peternakanPartner && $peternakanContract) {
-            $allocations[Grade::FIT] = Allocation::create([
-                'partner_id' => $peternakanPartner->id,
-                'contract_id' => $peternakanContract->id,
-                'grade' => Grade::FIT,
-                'source_grade' => Grade::FIT,
-                'intended_use' => Grade::INTENDED_USES[Grade::FIT],
-                'allocated_kg' => 1500.00,
-                'allocation_type' => 'minimum',
-                'status' => 'approved',
-                'week_start' => $weekStart->toDateString(),
-                'period_start' => $weekStart->toDateString(),
-                'period_end' => $weekEnd->toDateString(),
-                'notes' => 'Alokasi pakan hijauan ternak Sapi Merapi',
-            ]);
-        }
+            // -------------------------------------------------------
+            // 1. AMBIL LOT YANG MASUK HARI INI (hasil dari IntakeSeeder)
+            // -------------------------------------------------------
+            $dayLots = ClassificationLot::whereDate('classified_at', $dateStr)->get();
+            if ($dayLots->isEmpty()) {
+                // Seharusnya tidak terjadi jika IntakeSeeder sudah berjalan
+                continue;
+            }
 
-        if ($maggotPartner && $maggotContract) {
-            $allocations[Grade::LESS_FIT] = Allocation::create([
-                'partner_id' => $maggotPartner->id,
-                'contract_id' => $maggotContract->id,
-                'grade' => Grade::LESS_FIT,
-                'source_grade' => Grade::LESS_FIT,
-                'intended_use' => Grade::INTENDED_USES[Grade::LESS_FIT],
-                'allocated_kg' => 1200.00,
-                'allocation_type' => 'ideal',
-                'status' => 'approved',
-                'week_start' => $weekStart->toDateString(),
-                'period_start' => $weekStart->toDateString(),
-                'period_end' => $weekEnd->toDateString(),
-                'notes' => 'Alokasi sisa organik pakan Maggot BSF Banguntapan',
-            ]);
-        }
+            // -------------------------------------------------------
+            // 2. FILTER MITRA AKTIF HARI INI (DINAMIS — tidak hardcode)
+            // Mitra mingguan hanya muncul di hari jadwalnya sendiri.
+            // -------------------------------------------------------
+            $scheduledPartners = $allPartners
+                ->filter(fn (Partner $p) => $p->isScheduledForDate($date))
+                ->values();
 
-        // Create reservations linked to lots
-        $reservations = [];
-        foreach ($allocations as $grade => $allocation) {
-            $lot = $lots->firstWhere('grade', $grade);
-            $reservations[$grade] = Reservation::create([
-                'allocation_id' => $allocation->id,
-                'classification_lot_id' => $lot?->id,
-                'grade' => $grade,
-                'intended_use' => Grade::INTENDED_USES[$grade] ?? 'Pengolahan Organik',
-                'reserved_kg' => (float) $allocation->allocated_kg,
-                'status' => 'reserved',
-                'reserved_at' => now()->subDays(1),
-            ]);
-        }
+            if ($scheduledPartners->isEmpty()) {
+                // Fallback: pakai semua mitra (kasus edge)
+                $scheduledPartners = $allPartners;
+            }
 
-        // 2. Populate Scheduled Deliveries for Each Day of 1-Week Horizon
-        for ($dayOffset = 0; $dayOffset < 7; $dayOffset++) {
-            $serviceDate = $weekStart->copy()->addDays($dayOffset);
-            $dateStr = $serviceDate->toDateString();
-            $dayName = strtolower($serviceDate->englishDayOfWeek);
+            // -------------------------------------------------------
+            // 3. DISTRIBUSI LOT KE MITRA AKTIF PER GRADE
+            // Setiap grade dialokasikan ke mitra yang punya kontrak/preferensi grade itu,
+            // dan hanya mitra yang aktif pada hari ini.
+            // -------------------------------------------------------
+            foreach ([Grade::FIT, Grade::LESS_FIT, Grade::NOT_FIT] as $grade) {
+                $gradeLots = $dayLots->where('grade', $grade)->values();
+                if ($gradeLots->isEmpty()) {
+                    continue;
+                }
 
-            // Composter (Harian)
-            if ($composterPartner && $composterContract && isset($reservations[Grade::NOT_FIT])) {
-                $status = $serviceDate->isPast() ? 'delivered' : ($serviceDate->isToday() ? 'in_transit' : 'assigned');
-                $d = Delivery::create([
-                    'partner_id' => $composterPartner->id,
-                    'contract_id' => $composterContract->id,
-                    'service_date' => $dateStr,
-                    'status' => $status,
-                    'scheduled_for' => $serviceDate->copy()->setHour(8)->setMinute(30),
-                    'delivered_at' => $serviceDate->isPast() ? $serviceDate->copy()->setHour(10)->setMinute(45) : null,
-                    'received_by' => $serviceDate->isPast() ? 'Budi Composter' : null,
-                    'proof_path' => $serviceDate->isPast() ? 'proofs/delivery_composter.jpg' : null,
-                    'notes' => "Pengiriman harian kompos organik ke PT Kompos Organik Sentolo ($dateStr)",
-                ]);
+                $totalGradeKg = (float) $gradeLots->sum('kg');
 
-                DB::table('delivery_contracts')->insertOrIgnore(['delivery_id' => $d->id, 'contract_id' => $composterContract->id]);
+                // Cari mitra yang sesuai grade dan aktif hari ini
+                // Prioritas: kontrak grade persis → preferensi grade → first available
+                $candidatePartners = $scheduledPartners->filter(function (Partner $p) use ($grade) {
+                    $contractMatch = $p->contracts->contains(fn ($c) => $c->grade === $grade);
+                    $preferMatch   = $p->grade_preference === $grade;
+                    return $contractMatch || $preferMatch;
+                })->values();
 
-                $line = DeliveryLine::create([
-                    'delivery_id' => $d->id,
-                    'reservation_id' => $reservations[Grade::NOT_FIT]->id,
-                    'grade' => Grade::NOT_FIT,
-                    'intended_use' => Grade::INTENDED_USES[Grade::NOT_FIT],
-                    'kg' => 190.00,
-                    'unit_price_snapshot' => 1000.00,
-                    'total_amount_snapshot' => 190000.00,
-                ]);
+                if ($candidatePartners->isEmpty()) {
+                    // Tidak ada mitra khusus grade ini aktif hari ini — skip (log saja)
+                    continue;
+                }
 
-                $veh = $vehicles->get(3) ?? $vehicles->first(); // Hino Dutro / Elf
-                $trip = DeliveryTrip::create([
-                    'delivery_id' => $d->id,
-                    'vehicle_id' => $veh?->id,
-                    'officer_id' => $driver4?->id,
-                    'scheduled_for' => $serviceDate->copy()->setHour(8)->setMinute(30),
-                    'stop_order' => 1,
-                    'planned_kg' => 190.00,
-                    'distance_m' => 27000.00,
-                    'duration_s' => 1320,
-                    'status' => $serviceDate->isPast() ? 'done' : 'assigned',
-                    'estimation_source' => 'osrm',
-                ]);
+                // Distribusikan lot ke semua kandidat mitra yang aktif hari ini
+                // secara proporsional sesuai ideal_capacity_kg mereka
+                $totalIdealKg = $candidatePartners->sum(fn (Partner $p) => (float) ($p->dailyIdealKg($date) ?: $p->ideal_capacity_kg));
+                if ($totalIdealKg <= 0) {
+                    // Bagikan rata ke semua kandidat
+                    $totalIdealKg = $candidatePartners->count();
+                }
 
-                DeliveryTripLine::create(['trip_id' => $trip->id, 'delivery_line_id' => $line->id, 'planned_kg' => 190.00]);
+                $remainingKg = $totalGradeKg;
+                $partnerCount = $candidatePartners->count();
 
-                if ($serviceDate->isPast()) {
+                foreach ($candidatePartners as $partnerIdx => $partner) {
+                    $contract = $partner->contracts->firstWhere('grade', $grade)
+                        ?? $partner->contracts->first();
+
+                    // Hitung porsi proporsional untuk mitra ini
+                    $partnerIdealKg = (float) ($partner->dailyIdealKg($date) ?: $partner->ideal_capacity_kg);
+                    $proportion     = $totalIdealKg > 0 ? $partnerIdealKg / $totalIdealKg : (1.0 / $partnerCount);
+
+                    // Kalau mitra terakhir, ambil sisa semuanya supaya 0 stok tersisa
+                    $isLastPartner  = ($partnerIdx === $partnerCount - 1);
+                    $partnerKg      = $isLastPartner ? $remainingKg : round($totalGradeKg * $proportion, 2);
+                    $partnerKg      = max(0.01, $partnerKg); // minimal 0.01 kg
+                    $remainingKg    -= $partnerKg;
+
+                    // Tentukan jenis alokasi berdasarkan status hari
+                    $allocationType = match ($status) {
+                        'deficit'  => 'minimum',
+                        'overload' => 'maximum',
+                        default    => 'ideal',
+                    };
+
+                    // 3a. Buat Allocation
+                    $alloc = Allocation::create([
+                        'partner_id'      => $partner->id,
+                        'contract_id'     => $contract?->id,
+                        'grade'           => $grade,
+                        'source_grade'    => $grade,
+                        'intended_use'    => Grade::INTENDED_USES[$grade],
+                        'allocated_kg'    => $partnerKg,
+                        'allocation_type' => $allocationType,
+                        'status'          => 'approved',
+                        'allocation_date' => $dateStr,
+                        'week_start'      => $weekStart->toDateString(),
+                        'period_start'    => $dateStr,
+                        'period_end'      => $dateStr,
+                        'notes'           => "Alokasi {$status} {$grade} → {$partner->name} ({$dateStr})",
+                        'created_at'      => $date->copy()->setHour(11)->setMinute(30),
+                        'updated_at'      => $date->copy()->setHour(11)->setMinute(30),
+                    ]);
+
+                    // 3b. Buat Delivery
+                    $deliveryHour = 13 + ($partnerIdx % 4);
+                    $delivery = Delivery::create([
+                        'partner_id'   => $partner->id,
+                        'contract_id'  => $contract?->id,
+                        'service_date' => $dateStr,
+                        'status'       => 'delivered',
+                        'scheduled_for' => $date->copy()->setHour($deliveryHour)->setMinute(0),
+                        'delivered_at'  => $date->copy()->setHour($deliveryHour + 1)->setMinute(30),
+                        'received_by'  => 'Petugas Penerima ' . $partner->name,
+                        'proof_path'   => 'proofs/hist_' . $date->format('Ymd') . '_p' . $partner->id . '.jpg',
+                        'notes'        => "Pengiriman {$status} {$grade} → {$partner->name} ({$dateStr})",
+                        'created_at'   => $date->copy()->setHour(12)->setMinute(0),
+                        'updated_at'   => $date->copy()->setHour($deliveryHour + 1)->setMinute(30),
+                    ]);
+
+                    if ($contract) {
+                        DB::table('delivery_contracts')->insertOrIgnore([
+                            'delivery_id' => $delivery->id,
+                            'contract_id' => $contract->id,
+                        ]);
+                    }
+
+                    $driverData = $deliveryDrivers[$grade];
+                    $trip = DeliveryTrip::create([
+                        'delivery_id'       => $delivery->id,
+                        'vehicle_id'        => $driverData['vehicle']?->id,
+                        'officer_id'        => $driverData['driver']?->id,
+                        'scheduled_for'     => $date->copy()->setHour($deliveryHour)->setMinute(0),
+                        'stop_order'        => $partnerIdx + 1,
+                        'planned_kg'        => $partnerKg,
+                        'distance_m'        => 12000.00 + ($partnerIdx * 3000),
+                        'duration_s'        => 1800 + ($partnerIdx * 300),
+                        'status'            => 'done',
+                        'estimation_source' => 'osrm',
+                        'created_at'        => $date->copy()->setHour(12)->setMinute(0),
+                        'updated_at'        => $date->copy()->setHour($deliveryHour + 1)->setMinute(30),
+                    ]);
+
+                    // 3c. Ambil lot grade ini dan distribusikan ke mitra ini secara proporsional
+                    $lotsForThisPartner = $this->assignLotsToPartner($gradeLots, $partnerKg, $proportion, $isLastPartner);
+
+                    foreach ($lotsForThisPartner as ['lot' => $lot, 'kg' => $lotKg]) {
+                        $reservation = Reservation::create([
+                            'allocation_id'         => $alloc->id,
+                            'classification_lot_id' => $lot->id,
+                            'grade'                 => $grade,
+                            'intended_use'          => Grade::INTENDED_USES[$grade],
+                            'reserved_kg'           => $lotKg,
+                            'status'                => 'completed',
+                            'reserved_at'           => $date->copy()->setHour(12)->setMinute(0),
+                            'created_at'            => $date->copy()->setHour(12)->setMinute(0),
+                            'updated_at'            => $date->copy()->setHour(12)->setMinute(0),
+                        ]);
+
+                        $line = DeliveryLine::create([
+                            'delivery_id'            => $delivery->id,
+                            'reservation_id'         => $reservation->id,
+                            'grade'                  => $grade,
+                            'intended_use'           => Grade::INTENDED_USES[$grade],
+                            'kg'                     => $lotKg,
+                            'unit_price_snapshot'    => $contract?->sell_price ?? 1500.00,
+                            'total_amount_snapshot'  => $lotKg * ($contract?->sell_price ?? 1500.00),
+                            'created_at'             => $date->copy()->setHour(12)->setMinute(0),
+                            'updated_at'             => $date->copy()->setHour(12)->setMinute(0),
+                        ]);
+
+                        DeliveryTripLine::create([
+                            'trip_id'          => $trip->id,
+                            'delivery_line_id' => $line->id,
+                            'planned_kg'       => $lotKg,
+                        ]);
+
+                        // Keluarkan stok dari gudang (stock_out)
+                        WarehouseMutation::create([
+                            'delivery_id'           => $delivery->id,
+                            'classification_lot_id' => $lot->id,
+                            'grade'                 => $grade,
+                            'intended_use'          => Grade::INTENDED_USES[$grade],
+                            'type'                  => 'stock_out',
+                            'kg'                    => $lotKg,
+                            'reference_type'        => 'delivery',
+                            'reference_id'          => $delivery->id,
+                            'performed_by'          => $driverData['driver']?->id,
+                            'occurred_at'           => $date->copy()->setHour($deliveryHour)->setMinute(30),
+                            'description'           => "Stok keluar lot {$lot->lot_code} → {$partner->name} ({$dateStr})",
+                            'created_at'            => $date->copy()->setHour($deliveryHour)->setMinute(30),
+                            'updated_at'            => $date->copy()->setHour($deliveryHour)->setMinute(30),
+                        ]);
+                    }
+
+                    // 3d. Financial Line
                     FinancialLine::create([
-                        'type' => 'partner_invoice',
-                        'direction' => 'receivable',
-                        'delivery_id' => $d->id,
-                        'contract_id' => $composterContract->id,
-                        'grade' => Grade::NOT_FIT,
-                        'intended_use' => Grade::INTENDED_USES[Grade::NOT_FIT],
-                        'kg' => 190.00,
-                        'unit_price' => 1000.00,
-                        'amount' => 190000.00,
-                        'currency' => 'IDR',
-                        'status' => 'paid',
-                        'due_at' => $serviceDate,
-                        'paid_at' => $serviceDate,
-                        'description' => "Tagihan Pengiriman 190kg Kompos ($dateStr)",
+                        'type'        => 'partner_invoice',
+                        'direction'   => 'receivable',
+                        'delivery_id' => $delivery->id,
+                        'contract_id' => $contract?->id,
+                        'grade'       => $grade,
+                        'intended_use' => Grade::INTENDED_USES[$grade],
+                        'kg'          => $partnerKg,
+                        'unit_price'  => $contract?->sell_price ?? 1500.00,
+                        'amount'      => $partnerKg * ($contract?->sell_price ?? 1500.00),
+                        'currency'    => 'IDR',
+                        'status'      => 'paid',
+                        'due_at'      => $date->copy()->setHour(17)->setMinute(0),
+                        'paid_at'     => $date->copy()->setHour(18)->setMinute(0),
+                        'description' => "Tagihan {$partnerKg}kg {$grade} → {$partner->name} ({$dateStr})",
+                        'created_at'  => $date->copy()->setHour(12)->setMinute(0),
+                        'updated_at'  => $date->copy()->setHour(18)->setMinute(0),
                     ]);
                 }
             }
+        }
+    }
 
-            // Peternakan Sapi Merapi (Harian)
-            if ($peternakanPartner && $peternakanContract && isset($reservations[Grade::FIT])) {
-                $status = $serviceDate->isPast() ? 'delivered' : 'assigned';
-                $d = Delivery::create([
-                    'partner_id' => $peternakanPartner->id,
-                    'contract_id' => $peternakanContract->id,
-                    'service_date' => $dateStr,
-                    'status' => $status,
-                    'scheduled_for' => $serviceDate->copy()->setHour(10)->setMinute(0),
-                    'delivered_at' => $serviceDate->isPast() ? $serviceDate->copy()->setHour(11)->setMinute(30) : null,
-                    'received_by' => $serviceDate->isPast() ? 'Pak Deden Peternak' : null,
-                    'notes' => "Pengiriman harian pakan ternak ke Cangkringan ($dateStr)",
-                ]);
+    /**
+     * Assign sebagian lot (secara partial) ke mitra tertentu berdasarkan kg yang dialokasikan.
+     *
+     * Strategi: setiap lot bisa dibagi parsial antar mitra.
+     * Namun untuk simplisitas seeder, kita "tirukan" lot ke mitra
+     * dengan membuat pasangan (lot, kg) berdasarkan proporsi kg mitra.
+     *
+     * @param  \Illuminate\Support\Collection  $gradeLots   Semua lot grade ini hari ini
+     * @param  float                           $partnerKg   Total kg yang harus diterima mitra ini
+     * @param  float                           $proportion  Proporsi mitra dari total
+     * @param  bool                            $isLast      Apakah mitra terakhir (ambil semua sisa)
+     * @return array<array{lot: ClassificationLot, kg: float}>
+     */
+    private function assignLotsToPartner($gradeLots, float $partnerKg, float $proportion, bool $isLast): array
+    {
+        $result = [];
+        $assigned = 0.0;
 
-                DB::table('delivery_contracts')->insertOrIgnore(['delivery_id' => $d->id, 'contract_id' => $peternakanContract->id]);
-
-                $line = DeliveryLine::create([
-                    'delivery_id' => $d->id,
-                    'reservation_id' => $reservations[Grade::FIT]->id,
-                    'grade' => Grade::FIT,
-                    'intended_use' => Grade::INTENDED_USES[Grade::FIT],
-                    'kg' => 300.00,
-                    'unit_price_snapshot' => 2500.00,
-                    'total_amount_snapshot' => 750000.00,
-                ]);
-
-                $veh = $vehicles->get(0) ?? $vehicles->first(); // Pickup L300
-                $trip = DeliveryTrip::create([
-                    'delivery_id' => $d->id,
-                    'vehicle_id' => $veh?->id,
-                    'officer_id' => $driver1?->id,
-                    'scheduled_for' => $serviceDate->copy()->setHour(10)->setMinute(0),
-                    'stop_order' => 1,
-                    'planned_kg' => 300.00,
-                    'distance_m' => 18000.00,
-                    'duration_s' => 3600,
-                    'status' => $serviceDate->isPast() ? 'done' : 'assigned',
-                    'estimation_source' => 'haversine',
-                ]);
-
-                DeliveryTripLine::create(['trip_id' => $trip->id, 'delivery_line_id' => $line->id, 'planned_kg' => 300.00]);
-
-                if ($serviceDate->isPast()) {
-                    FinancialLine::create([
-                        'type' => 'partner_invoice',
-                        'direction' => 'receivable',
-                        'delivery_id' => $d->id,
-                        'contract_id' => $peternakanContract->id,
-                        'grade' => Grade::FIT,
-                        'intended_use' => Grade::INTENDED_USES[Grade::FIT],
-                        'kg' => 300.00,
-                        'unit_price' => 2500.00,
-                        'amount' => 750000.00,
-                        'currency' => 'IDR',
-                        'status' => 'issued',
-                        'due_at' => $serviceDate->copy()->addDays(7),
-                        'paid_at' => null,
-                        'description' => "Tagihan Pakan Ternak 300kg ($dateStr)",
-                    ]);
-                }
+        foreach ($gradeLots as $lot) {
+            $lotShare = round((float) $lot->kg * $proportion, 2);
+            $lotShare = min($lotShare, $partnerKg - $assigned);
+            if ($lotShare <= 0) {
+                continue;
             }
 
-            // Maggot BSF (Mingguan on Monday, Wednesday, Friday)
-            if (in_array($dayName, ['monday', 'wednesday', 'friday'], true) && $maggotPartner && $maggotContract && isset($reservations[Grade::LESS_FIT])) {
-                $d = Delivery::create([
-                    'partner_id' => $maggotPartner->id,
-                    'contract_id' => $maggotContract->id,
-                    'service_date' => $dateStr,
-                    'status' => $serviceDate->isPast() ? 'delivered' : 'planned',
-                    'scheduled_for' => $serviceDate->copy()->setHour(13)->setMinute(0),
-                    'notes' => "Pengiriman mingguan pakan Maggot BSF Banguntapan ($dateStr)",
-                ]);
+            $result[] = ['lot' => $lot, 'kg' => $lotShare];
+            $assigned += $lotShare;
 
-                DB::table('delivery_contracts')->insertOrIgnore(['delivery_id' => $d->id, 'contract_id' => $maggotContract->id]);
-
-                $line = DeliveryLine::create([
-                    'delivery_id' => $d->id,
-                    'reservation_id' => $reservations[Grade::LESS_FIT]->id,
-                    'grade' => Grade::LESS_FIT,
-                    'intended_use' => Grade::INTENDED_USES[Grade::LESS_FIT],
-                    'kg' => 150.00,
-                    'unit_price_snapshot' => 1800.00,
-                    'total_amount_snapshot' => 270000.00,
-                ]);
-
-                $veh = $vehicles->get(1) ?? $vehicles->first(); // Isuzu Elf
-                $trip = DeliveryTrip::create([
-                    'delivery_id' => $d->id,
-                    'vehicle_id' => $veh?->id,
-                    'officer_id' => $driver2?->id,
-                    'scheduled_for' => $serviceDate->copy()->setHour(13)->setMinute(0),
-                    'stop_order' => 1,
-                    'planned_kg' => 150.00,
-                    'distance_m' => 14000.00,
-                    'duration_s' => 2100,
-                    'status' => $serviceDate->isPast() ? 'done' : 'assigned',
-                    'estimation_source' => 'osrm',
-                ]);
-
-                DeliveryTripLine::create(['trip_id' => $trip->id, 'delivery_line_id' => $line->id, 'planned_kg' => 150.00]);
+            if ($assigned >= $partnerKg - 0.01) {
+                break;
             }
         }
 
-        // Payable Financial Line for Supplier Purchase
-        $pickup = Pickup::where('status', 'completed')->first();
-        $report = SupplierReport::first();
-        if ($pickup && $report) {
-            FinancialLine::create([
-                'type' => 'supplier_payment',
-                'direction' => 'payable',
-                'supplier_report_id' => $report->id,
-                'pickup_id' => $pickup->id,
-                'grade' => Grade::LESS_FIT,
-                'intended_use' => Grade::INTENDED_USES[Grade::LESS_FIT],
-                'kg' => 890.00,
-                'unit_price' => 1000.00,
-                'amount' => 890000.00,
-                'currency' => 'IDR',
-                'status' => 'paid',
-                'due_at' => now()->subHours(4),
-                'paid_at' => now()->subHours(2),
-                'description' => 'Pembayaran Pembelian 890kg Limbah Organik Pasar Beringharjo',
-            ]);
+        // Jika ada gap kecil karena pembulatan, tambahkan ke lot pertama
+        if (! empty($result) && abs($assigned - $partnerKg) > 0.0001) {
+            $result[0]['kg'] = round($result[0]['kg'] + ($partnerKg - $assigned), 2);
         }
+
+        return $result;
     }
 }

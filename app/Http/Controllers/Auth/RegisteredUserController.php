@@ -40,21 +40,18 @@ class RegisteredUserController extends Controller
             'latitude' => ['required', 'numeric', 'between:-90,90'],
             'longitude' => ['required', 'numeric', 'between:-180,180'],
             'grade_preference' => ['required', 'string', 'in:'.implode(',', Grade::ALL)],
-            'min_capacity_kg' => 'required|numeric|min:0',
-            'ideal_capacity_kg' => 'required|numeric|gte:min_capacity_kg',
-            'max_capacity_kg' => 'required|numeric|gte:ideal_capacity_kg',
+            'kebutuhan_pokok_kg' => 'nullable|numeric|min:0',
+            'ideal_capacity_kg' => 'nullable|numeric|min:0',
+            'min_capacity_kg' => 'nullable|numeric|min:0',
+            'max_capacity_kg' => 'nullable|numeric|min:0',
             'frequency' => 'required|in:harian,mingguan,bulanan',
-            'receiving_days' => 'nullable|array|required_if:frequency,mingguan',
+            'receiving_days' => 'nullable|array',
             'receiving_days.*' => 'in:monday,tuesday,wednesday,thursday,friday,saturday,sunday',
             'monthly_receiving_day' => 'nullable|integer|between:1,28|required_if:frequency,bulanan',
             'overcapacity_terms_accepted' => 'accepted',
         ]);
 
-        if ($request->frequency === 'mingguan' && empty($request->receiving_days)) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
-                'receiving_days' => 'Pilih minimal 1 hari penerimaan.',
-            ]);
-        }
+        $kebutuhan = (float) ($request->input('kebutuhan_pokok_kg') ?? $request->input('ideal_capacity_kg') ?? $request->input('min_capacity_kg') ?? 0);
 
         $user = User::create([
             'name' => $request->name,
@@ -62,15 +59,28 @@ class RegisteredUserController extends Controller
             'password' => Hash::make($request->password),
             'role' => 'partner',
         ]);
-        $data = $request->only('name', 'address', 'latitude', 'longitude', 'grade_preference', 'min_capacity_kg', 'ideal_capacity_kg', 'max_capacity_kg', 'frequency', 'receiving_days', 'monthly_receiving_day');
-        if ($data['frequency'] !== 'mingguan') {
-            $data['receiving_days'] = null;
-        }
-        if ($data['frequency'] !== 'bulanan') {
-            $data['monthly_receiving_day'] = null;
-        }
 
-        Partner::create($data + ['user_id' => $user->id, 'overcapacity_terms_version' => Partner::OVERCAPACITY_TERMS_VERSION, 'overcapacity_terms_accepted_at' => now()]);
+        $freq = $request->input('frequency');
+        $rawDays = (array) $request->input('receiving_days', []);
+        $firstDay = !empty($rawDays) ? reset($rawDays) : 'monday';
+        $receivingDays = $freq === 'mingguan' ? [$firstDay] : [];
+
+        Partner::create([
+            'user_id' => $user->id,
+            'name' => $request->name,
+            'address' => $request->address,
+            'latitude' => $request->latitude,
+            'longitude' => $request->longitude,
+            'grade_preference' => $request->grade_preference,
+            'min_capacity_kg' => $kebutuhan,
+            'ideal_capacity_kg' => $kebutuhan,
+            'max_capacity_kg' => $kebutuhan,
+            'frequency' => $freq,
+            'receiving_days' => $receivingDays,
+            'monthly_receiving_day' => $freq === 'bulanan' ? $request->monthly_receiving_day : null,
+            'overcapacity_terms_version' => Partner::OVERCAPACITY_TERMS_VERSION,
+            'overcapacity_terms_accepted_at' => now(),
+        ]);
 
         event(new Registered($user));
 

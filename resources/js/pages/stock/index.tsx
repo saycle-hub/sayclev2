@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, useForm } from '@inertiajs/react';
-import { ArrowRight, Building2, MapPin, PackagePlus, Plus, ShieldCheck, Warehouse as WarehouseIcon } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Building2, MapPin, PackagePlus, Plus } from 'lucide-react';
 import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -18,7 +18,7 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Stok Gudang', href: '/stock' },
 ];
 
-interface GradeStock {
+export interface GradeStock {
     grade: string;
     total_kg: number;
 }
@@ -34,12 +34,25 @@ export interface Warehouse {
     is_active: boolean;
     is_default: boolean;
     notes?: string;
+    occupied_kg?: number;
+    occupancy_rate?: number;
+    grade_stocks?: Record<string, number>;
+}
+
+export interface SafeHoldingLimit {
+    max_days: number;
+    target: string;
+    risk: string;
+    badge: string;
 }
 
 interface StockIndexProps {
     stock: GradeStock[];
     entries: StockEntry[];
     warehouses?: Warehouse[];
+    unallocatedStocks?: { grade: string; stock_kg: number; allocated_kg: number; unallocated_kg: number }[];
+    safeHoldingLimits?: Record<string, SafeHoldingLimit>;
+    idealDemands?: Record<string, number>;
 }
 
 export const GRADES = ['Layak', 'Kurang Layak', 'Tidak Layak'] as const;
@@ -66,7 +79,7 @@ export function StockFormFields({ form, idPrefix }: { form: ReturnType<typeof us
             <div className="space-y-1.5">
                 <Label htmlFor={`${idPrefix}-grade`}>Grade</Label>
                 <Select value={form.data.grade} onValueChange={(v) => form.setData('grade', v)}>
-                    <SelectTrigger id={`${idPrefix}-grade`} className="min-h-11 focus:border-[#e88c12] focus:ring-[#e88c12]/30">
+                    <SelectTrigger id={`${idPrefix}-grade`} className="min-h-11 focus:border-[#2f6848] focus:ring-[#2f6848]/30">
                         <SelectValue placeholder="Pilih grade" />
                     </SelectTrigger>
                     <SelectContent>
@@ -82,7 +95,7 @@ export function StockFormFields({ form, idPrefix }: { form: ReturnType<typeof us
             <div className="space-y-1.5">
                 <Label htmlFor={`${idPrefix}-type`}>Tipe mutasi</Label>
                 <Select value={form.data.type} onValueChange={(v) => form.setData('type', v)}>
-                    <SelectTrigger id={`${idPrefix}-type`} className="min-h-11 focus:border-[#e88c12] focus:ring-[#e88c12]/30">
+                    <SelectTrigger id={`${idPrefix}-type`} className="min-h-11 focus:border-[#2f6848] focus:ring-[#2f6848]/30">
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -110,7 +123,7 @@ export function StockFormFields({ form, idPrefix }: { form: ReturnType<typeof us
                     {...(isAdjust ? { min: undefined, placeholder: 'contoh: +10 atau -5' } : { min: '0.01' })}
                     value={form.data.kg}
                     onChange={(e) => form.setData('kg', e.target.value)}
-                    className="min-h-11 focus:border-[#e88c12] focus:ring-[#e88c12]/30"
+                    className="min-h-11 focus:border-[#2f6848] focus:ring-[#2f6848]/30"
                     required
                 />
                 <InputError message={form.errors.kg} />
@@ -121,7 +134,7 @@ export function StockFormFields({ form, idPrefix }: { form: ReturnType<typeof us
                     id={`${idPrefix}-description`}
                     value={form.data.description}
                     onChange={(e) => form.setData('description', e.target.value)}
-                    className="focus:border-[#e88c12] focus:ring-[#e88c12]/30"
+                    className="focus:border-[#2f6848] focus:ring-[#2f6848]/30"
                     rows={3}
                 />
                 <InputError message={form.errors.description} />
@@ -130,7 +143,14 @@ export function StockFormFields({ form, idPrefix }: { form: ReturnType<typeof us
     );
 }
 
-export default function StockIndex({ stock, entries, warehouses = [] }: StockIndexProps) {
+export default function StockIndex({
+    stock,
+    entries,
+    warehouses = [],
+    unallocatedStocks = [],
+    safeHoldingLimits = {},
+    idealDemands = {},
+}: StockIndexProps) {
     const [openAdjust, setOpenAdjust] = useState(false);
     const [openAddWarehouse, setOpenAddWarehouse] = useState(false);
     const [selectedWarehouse, setSelectedWarehouse] = useState<Warehouse | null>(null);
@@ -170,7 +190,6 @@ export default function StockIndex({ stock, entries, warehouses = [] }: StockInd
     };
 
     const totalCapacityKg = warehouses.reduce((acc, w) => acc + Number(w.capacity_kg), 0);
-    const totalStockKg = stock.reduce((acc, s) => acc + s.total_kg, 0);
 
     return (
         <AppLayout
@@ -329,7 +348,7 @@ export default function StockIndex({ stock, entries, warehouses = [] }: StockInd
                                     <Button type="button" variant="ghost" onClick={() => setOpenAdjust(false)} disabled={form.processing} className="min-h-11 md:min-h-9 text-[#111D13]/70 hover:bg-[#F2F7F3]">
                                         Batal
                                     </Button>
-                                    <Button type="submit" disabled={form.processing} className="min-h-11 bg-[#415D43] text-white hover:bg-[#344B36] font-semibold md:min-h-9">
+                                    <Button type="submit" disabled={form.processing} className="min-h-11 bg-[#2f6848] text-white hover:bg-[#18352a] font-semibold md:min-h-9">
                                         Simpan
                                     </Button>
                                 </div>
@@ -339,18 +358,45 @@ export default function StockIndex({ stock, entries, warehouses = [] }: StockInd
                 </>
             }
         >
-            <Head title="Stok Gudang" />
-            <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
-                {/* Real Physical Warehouses Section */}
+            <Head title="Stok Gudang & Mutasi" />
+            <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6 text-[#18352a]">
+
+                {/* 1. INFO STOK BELUM DIALOKASI (PALING ATAS - DESAIN DISESUAIKAN DENGAN RUTE PENGIRIMAN) */}
+                {unallocatedStocks && unallocatedStocks.length > 0 && (
+                    <div className="flex items-center justify-between gap-3 rounded-2xl border border-[#2f6848]/30 bg-[#2f6848]/10 p-3.5 px-5 text-[#18352a] shadow-sm">
+                        <div className="flex items-center gap-3">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#2f6848]/20 text-[#2f6848]">
+                                <AlertTriangle className="h-5 w-5" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-bold text-[#18352a]">
+                                    Peringatan: Stok Masuk Belum Dialokasikan
+                                </p>
+                                <p className="text-xs text-[#18352a]/70">
+                                    Rincian stok belum dialokasikan: <strong className="font-semibold text-[#18352a]">{unallocatedStocks.map((s) => `${s.grade}: ${s.unallocated_kg.toLocaleString('id-ID')} kg`).join(' | ')}</strong>
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                            <span className="hidden sm:inline-block rounded-full bg-[#18352a]/10 px-3 py-1 text-xs font-mono font-bold text-[#18352a]">
+                                Total: {unallocatedStocks.reduce((acc, s) => acc + s.unallocated_kg, 0).toLocaleString('id-ID')} kg
+                            </span>
+                            <Button asChild className="h-9 rounded-xl bg-[#18352a] px-4 text-xs font-bold text-white hover:bg-[#2f6848] transition-all shrink-0">
+                                <Link href="/allocation">Alokasikan Sekarang</Link>
+                            </Button>
+                        </div>
+                    </div>
+                )}
+
+                {/* 2. GUDANG & DEPO OPERASIONAL (KEDUA) */}
                 <section aria-labelledby="warehouses-heading" className="space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#18352a]/10 pb-2">
                         <div>
-                            <h2 id="warehouses-heading" className="text-lg font-bold text-[#18352a] flex items-center gap-2">
-                                <WarehouseIcon className="h-5 w-5 text-[#2f6848]" />
-                                Gudang & Depo Operasional
+                            <h2 id="warehouses-heading" className="text-base font-semibold text-[#111D13]">
+                                Gudang & Depo Operasional Yogyakarta
                             </h2>
-                            <p className="text-xs text-[#18352a]/70">
-                                Titik asal rute penjemputan supplier & pengiriman mitra di Daerah Istimewa Yogyakarta. Total Kapasitas: {totalCapacityKg.toLocaleString('id-ID')} kg
+                            <p className="text-xs text-[#709775]">
+                                Titik penampungan fisik & penimbangan limbah sebelum distribusi ke mitra. Total Kapasitas: {totalCapacityKg.toLocaleString('id-ID')} kg
                             </p>
                         </div>
                     </div>
@@ -359,103 +405,147 @@ export default function StockIndex({ stock, entries, warehouses = [] }: StockInd
                         {warehouses.map((w) => (
                             <div
                                 key={w.id}
-                                className="group relative rounded-2xl border border-[#8FB996]/40 bg-white p-5 shadow-sm hover:shadow-md transition-all space-y-3"
+                                className="overflow-hidden rounded-2xl border border-[#8FB996]/35 bg-white shadow-[0_2px_8px_rgba(17,29,19,0.04)] flex flex-col justify-between"
                             >
-                                <div className="flex items-start justify-between gap-3">
-                                    <div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="rounded bg-[#18352a]/10 px-2 py-0.5 text-xs font-mono font-semibold text-[#18352a]">
-                                                {w.code}
-                                            </span>
-                                            {w.is_default && (
-                                                <span className="inline-flex items-center gap-1 rounded-full bg-[#2f6848]/10 px-2.5 py-0.5 text-xs font-medium text-[#2f6848]">
-                                                    <ShieldCheck className="h-3 w-3" /> Depo Utama
-                                                </span>
-                                            )}
-                                        </div>
-                                        <h3 className="mt-1 text-base font-bold text-[#18352a] group-hover:text-[#2f6848] transition-colors">
-                                            {w.name}
-                                        </h3>
-                                    </div>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => setSelectedWarehouse(w)}
-                                        className="text-xs border-[#8FB996]/50 text-[#18352a] hover:bg-[#F2F7F3]"
-                                    >
-                                        Detail
-                                    </Button>
-                                </div>
-
-                                <div className="flex items-start gap-1.5 text-xs text-[#18352a]/75">
-                                    <MapPin className="h-3.5 w-3.5 text-[#e88c12] shrink-0 mt-0.5" />
-                                    <span className="line-clamp-2">{w.address}</span>
-                                </div>
-
-                                {/* Per-Warehouse Stock Breakdown per Grade */}
-                                <div className="space-y-2 pt-2 border-t border-[#8FB996]/20">
-                                    <div className="flex items-center justify-between text-xs font-semibold text-[#18352a]">
-                                        <span>Keterisian Gudang:</span>
-                                        <span className="tabular-nums">
-                                            {Number(w.occupied_kg ?? 0).toLocaleString('id-ID')} / {Number(w.capacity_kg).toLocaleString('id-ID')} kg ({w.occupancy_rate ?? 0}%)
+                                <div className="flex items-center justify-between gap-3 border-b border-[#8FB996]/25 bg-[#F2F7F3] px-5 py-3.5">
+                                    <div className="flex items-center gap-2">
+                                        <span className="rounded bg-[#18352a]/10 px-2 py-0.5 text-xs font-mono font-semibold text-[#18352a]">
+                                            {w.code}
                                         </span>
+                                        <h3 className="text-base font-semibold text-[#111D13]">{w.name}</h3>
                                     </div>
-                                    <div className="h-2 w-full overflow-hidden rounded-full bg-[#18352a]/10">
-                                        <div
-                                            className="h-full bg-[#415D43] transition-all"
-                                            style={{ width: `${Math.min(100, w.occupancy_rate ?? 0)}%` }}
-                                        />
+                                    <div className="flex items-center gap-2">
+                                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${w.is_default ? 'bg-[#2f6848]/10 text-[#2f6848]' : 'bg-[#18352a]/10 text-[#18352a]'}`}>
+                                            {w.is_default ? 'Depo Utama' : 'Gudang Hub'}
+                                        </span>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setSelectedWarehouse(w)}
+                                            className="h-7 text-xs border-[#8FB996]/50 text-[#18352a] hover:bg-[#2f6848] hover:text-white transition-colors shrink-0"
+                                        >
+                                            Detail
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                <div className="p-5 space-y-3.5 text-xs text-[#18352a] flex-1 flex flex-col justify-between">
+                                    <div>
+                                        <p className="text-[#18352a]/80 font-medium line-clamp-2">{w.address}</p>
                                     </div>
 
+                                    {/* Warehouse Capacity Occupancy Bar */}
+                                    <div className="space-y-1.5 pt-2 border-t border-[#8FB996]/20">
+                                        <div className="flex items-center justify-between text-xs font-bold text-[#18352a]">
+                                            <span>Keterisian Gudang:</span>
+                                            <span className="tabular-nums">
+                                                {Number(w.occupied_kg ?? 0).toLocaleString('id-ID')} / {Number(w.capacity_kg).toLocaleString('id-ID')} kg ({w.occupancy_rate ?? 0}% terisi)
+                                            </span>
+                                        </div>
+                                        <div className="h-2.5 w-full overflow-hidden rounded-full bg-[#18352a]/10">
+                                            <div
+                                                className="h-full bg-[#2f6848] transition-all"
+                                                style={{ width: `${Math.min(100, w.occupancy_rate ?? 0)}%` }}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Per Grade Stock Breakdown (Integrated 3-part section like Dashboard) */}
                                     {w.grade_stocks && (
-                                        <div className="grid grid-cols-3 gap-1.5 pt-1">
-                                            {Object.entries(w.grade_stocks).map(([grade, kg]) => (
-                                                <div key={grade} className="rounded-lg bg-[#F2F7F3] p-1.5 text-center border border-[#8FB996]/25">
-                                                    <span className="block text-[10px] font-semibold text-[#709775]">{grade}</span>
-                                                    <span className="text-xs font-bold text-[#111D13] tabular-nums">{Number(kg).toLocaleString('id-ID')} kg</span>
-                                                </div>
-                                            ))}
+                                        <div className="-mx-5 border-y border-[#8FB996]/25 bg-[#F2F7F3]">
+                                            <div className="grid grid-cols-3 divide-x divide-[#18352a]/10">
+                                                {Object.entries(w.grade_stocks).map(([grade, kg]) => (
+                                                    <div key={grade} className="py-3 px-2 text-center">
+                                                        <span className="block text-[11px] font-bold text-[#2f6848]">{grade}</span>
+                                                        <span className="text-sm font-extrabold text-[#111D13] tabular-nums mt-0.5 block">{Number(kg).toLocaleString('id-ID')} kg</span>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
                                     )}
-                                </div>
 
-                                <div className="pt-2 border-t border-[#8FB996]/20 flex items-center justify-between text-xs font-medium text-[#18352a]/80">
-                                    <span>Status Depo: <strong className="text-[#18352a]">{w.is_default ? 'Depo Utama' : 'Gudang Hub'}</strong></span>
-                                    <span className="text-[#2f6848]">
-                                        {w.latitude.toFixed(4)}, {w.longitude.toFixed(4)}
-                                    </span>
+                                    <div className="pt-1 flex items-center justify-between text-xs font-medium text-[#18352a]/80">
+                                        <span>Koordinat: <strong className="font-mono text-[#2f6848]">{Number(w.latitude).toFixed(4)}, {Number(w.longitude).toFixed(4)}</strong></span>
+                                        <span className="text-[#2f6848] font-bold">Kapasitas: {Number(w.capacity_kg).toLocaleString('id-ID')} kg</span>
+                                    </div>
                                 </div>
                             </div>
                         ))}
                     </div>
                 </section>
 
-                {/* Stock per Grade Summary */}
-                <section aria-labelledby="stock-summary-heading" className="space-y-3">
-                    <h2 id="stock-summary-heading" className="text-base font-bold text-[#18352a]">
-                        Posisi Stok Komulatif Per Grade ({totalStockKg.toLocaleString('id-ID', { maximumFractionDigits: 1 })} kg)
-                    </h2>
-                    <div className="grid gap-4 sm:grid-cols-3">
-                        {stock.map((s) => (
-                            <div key={s.grade} className="rounded-2xl border border-[#8FB996]/35 bg-white p-5 shadow-[0_2px_8px_rgba(17,29,19,0.04)]">
-                                <div className="flex items-center justify-between gap-3">
-                                    <GradeBadge grade={s.grade} />
-                                    <p className="text-2xl font-semibold text-[#111D13] tabular-nums">
-                                        {s.total_kg.toLocaleString('id-ID', { maximumFractionDigits: 1 })}
-                                        <span className="ml-1 text-sm font-medium text-[#111D13]/70">kg</span>
-                                    </p>
-                                </div>
-                            </div>
-                        ))}
+                {/* 3. POSISI STOK & BATAS AMAN HOLDING (DIBUAT 1 CARD UTAMA DIBAGI 3 SEPERTI STATUS ALOKASI DI DASBOR) */}
+                <section aria-labelledby="stock-perishability-heading" className="overflow-hidden rounded-2xl border border-[#8FB996]/35 bg-white shadow-[0_2px_8px_rgba(17,29,19,0.04)]">
+                    <div className="flex flex-wrap items-baseline justify-between gap-3 border-b border-[#8FB996]/25 bg-[#F2F7F3] px-5 py-3.5">
+                        <div>
+                            <h2 id="stock-perishability-heading" className="text-base font-semibold text-[#111D13]">
+                                Posisi Stok & Batas Aman Holding (Per Grade Sayur)
+                            </h2>
+                            <p className="text-xs text-[#709775]">
+                                Penjumlahan stok ideal dari total sampah sayuran & batas aman simpan gudang sebelum distribusi.
+                            </p>
+                        </div>
+                    </div>
+                    <div className="p-0">
+                        <div className="grid grid-cols-1 divide-y divide-[#18352a]/10 sm:grid-cols-3 sm:divide-y-0 sm:divide-x sm:divide-[#18352a]/10">
+                            {stock.map((s) => {
+                                const limit = safeHoldingLimits[s.grade] ?? {
+                                    max_days: s.grade === 'Layak' ? 2 : s.grade === 'Kurang Layak' ? 3 : 5,
+                                    target: s.grade === 'Layak' ? 'Pakan Ternak Segar' : s.grade === 'Kurang Layak' ? 'Maggot BSF' : 'Kompos Organik',
+                                    risk: s.grade === 'Layak' ? 'Pembusukan & tekstur lembek jika > 48 jam' : s.grade === 'Kurang Layak' ? 'Fermentasi asam berlebih jika > 72 jam' : 'Bau menyengat & gas metana jika > 120 jam',
+                                    badge: `${s.grade === 'Layak' ? 2 : s.grade === 'Kurang Layak' ? 3 : 5} Hari (${s.grade === 'Layak' ? 48 : s.grade === 'Kurang Layak' ? 72 : 120} Jam)`,
+                                };
+
+                                const idealKg = idealDemands[s.grade] ?? s.total_kg;
+                                const occupancyPercentage = idealKg > 0 ? Math.round((s.total_kg / idealKg) * 100) : 100;
+
+                                return (
+                                    <div key={s.grade} className="p-5 sm:p-6 space-y-3">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <GradeBadge grade={s.grade} />
+                                            <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-800 border border-amber-200/80">
+                                                Max {limit.badge}
+                                            </span>
+                                        </div>
+
+                                        <div>
+                                            <span className="text-[11px] font-bold text-[#18352a]/60 block uppercase tracking-wider">Total Stok Tersedia</span>
+                                            <div className="flex items-baseline justify-between mt-0.5">
+                                                <p className="text-2xl sm:text-3xl font-extrabold text-[#111D13] tabular-nums">
+                                                    {s.total_kg.toLocaleString('id-ID', { maximumFractionDigits: 1 })}{' '}
+                                                    <span className="text-sm font-semibold text-[#111D13]/70">kg</span>
+                                                </p>
+                                                <span className="rounded-full bg-[#2f6848]/10 px-2.5 py-0.5 text-xs font-bold text-[#2f6848]">
+                                                    {occupancyPercentage}% Terisi
+                                                </span>
+                                            </div>
+                                            <p className="text-[11px] text-[#18352a]/60 mt-1 font-medium">
+                                                Kebutuhan Ideal Mitra: {idealKg.toLocaleString('id-ID')} kg
+                                            </p>
+                                        </div>
+
+                                        <div className="space-y-1 text-xs pt-3 border-t border-[#8FB996]/20">
+                                            <p className="text-[#2f6848] font-bold">
+                                                Tujuan: <span className="text-[#18352a] font-medium">{limit.target}</span>
+                                            </p>
+                                            <p className="text-rose-700 font-bold">
+                                                Risiko: <span className="text-[#18352a]/80 font-normal">{limit.risk}</span>
+                                            </p>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
                 </section>
 
-                {/* Ledger Mutation Table */}
+                {/* 4. RIWAYAT LEDGER MUTASI GUDANG (KEEMPAT) */}
                 <section aria-labelledby="log-heading" className="overflow-hidden rounded-2xl border border-[#8FB996]/35 bg-white shadow-[0_2px_8px_rgba(17,29,19,0.04)]">
-                    <div className="border-b border-[#8FB996]/25 bg-[#F2F7F3] px-5 py-3.5">
+                    <div className="flex items-baseline justify-between gap-3 border-b border-[#8FB996]/25 bg-[#F2F7F3] px-5 py-3.5">
                         <h2 id="log-heading" className="text-base font-semibold text-[#111D13]">
-                            Riwayat Mutasi Ledger Gudang
+                            Riwayat Ledger Mutasi Gudang
                         </h2>
+                        <span className="text-xs text-[#709775]">Catatan Otomatis Penimbangan & Penerimaan</span>
                     </div>
                     <div className="p-5">
                         <StockTable entries={entries} />
